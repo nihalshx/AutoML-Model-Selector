@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>AutoML Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>AutoML Results</h1>
+        <p><strong>Run ID:</strong> {{ results.run_id }}</p>
+        <p><strong>Best Model:</strong> {{ results.best_model_name }}</p>
+
+        <h2>Model Leaderboard</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    {% if task_type == 'classification' %}
+                    <th>Accuracy</th>
+                    <th>F1-score</th>
+                    {% else %}
+                    <th>R2 Score</th>
+                    <th>MAE</th>
+                    <th>MSE</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in results.models_metrics %}
+                <tr {% if m.model_name==results.best_model_name %}class="highlight" {% endif %}>
+                    <td>{{ m.model_name }}</td>
+                    {% if task_type == 'classification' %}
+                    <td>{{ "%.4f"|format(m.accuracy) }}</td>
+                    <td>{{ "%.4f"|format(m.f1) }}</td>
+                    {% else %}
+                    <td>{{ "%.4f"|format(m.r2) }}</td>
+                    <td>{{ "%.4f"|format(m.mae) }}</td>
+                    <td>{{ "%.4f"|format(m.mse) }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Plots</h2>
+
+        <div class="plots">
+            <div>
+                <h3>Model Performance</h3>
+                <img src="{{ scores_img_url }}" alt="Model Scores">
+            </div>
+
+            {% if task_type == 'classification' %}
+            <div>
+                <h3>Confusion Matrix</h3>
+                <img src="{{ confusion_img_url }}" alt="Confusion Matrix">
+            </div>
+
+            {% if roc_img_url %}
+            <div>
+                <h3>ROC Curve (Binary)</h3>
+                <img src="{{ roc_img_url }}" alt="ROC Curve">
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- Regression Plots -->
+            {% if actual_vs_predicted_img_url %}
+            <div>
+                <h3>Actual vs Predicted</h3>
+                <img src="{{ actual_vs_predicted_img_url }}" alt="Actual vs Predicted">
+            </div>
+            {% endif %}
+
+            {% if residuals_img_url %}
+            <div>
+                <h3>Residuals</h3>
+                <img src="{{ residuals_img_url }}" alt="Residuals">
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        {% if shap_summary_url or shap_bar_url %}
+        <h2>SHAP Explainability</h2>
+        {% if shap_summary_url %}
+        <div>
+            <h3>SHAP Summary</h3><img src="{{ shap_summary_url }}" alt="SHAP Summary">
+        </div>
+        {% endif %}
+        {% if shap_bar_url %}
+        <div>
+            <h3>Feature Importance (mean |SHAP|)</h3><img src="{{ shap_bar_url }}" alt="SHAP Feature Importance">
+        </div>
+        {% endif %}
+
+        {% if shap_csv_url %}
+        <p><a href="{{ shap_csv_url }}">Download SHAP feature importances (CSV)</a></p>
+        {% endif %}
+        {% endif %}
+
+        <h2>Downloads</h2>
+        <ul>
+            <li><a href="{{ model_download_url }}">Download Best Model (.pkl)</a></li>
+            <li><a href="{{ preprocessed_download_url }}">Download Preprocessed Dataset (.csv)</a></li>
+            <li><a href="{{ report_download_url }}">Download HTML Performance Report</a></li>
+        </ul>
+
+        {% if task_type == 'classification' %}
+        <h2>Classification Report (Text)</h2>
+        <pre>{{ results.classification_report_text }}</pre>
+        {% endif %}
+
+        <p><a href="{{ url_for('upload_file') }}">Run another experiment</a></p>
+    </div>
+</body>
+
+</html>

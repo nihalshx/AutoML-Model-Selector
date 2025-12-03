@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AutoML Model Selector</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h1>AutoML Model Selector</h1>
+    <p>Upload a CSV file and specify the target column. The app will train and rank multiple models automatically.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flash-messages">
+          {% for msg in messages %}
+            <li>{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="dataset">Dataset (.csv)</label>
+        <input type="file" name="dataset" id="dataset" required>
+      </div>
+
+      <div class="form-group">
+        <label for="target_col">Target Column Name</label>
+        <input type="text" name="target_col" id="target_col" placeholder="e.g. label" required>
+      </div>
+
+      <div class="form-group">
+        <label for="task_type">Task Type</label>
+        <select name="task_type" id="task_type">
+          <option value="classification">Classification</option>
+          <option value="regression">Regression</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label><input type="checkbox" name="use_optuna"> Enable Optuna Hyperparameter Tuning</label>
+      </div>
+
+      <div class="form-group">
+        <label for="optuna_trials">Optuna trials (recommended 10-50)</label>
+        <input type="number" name="optuna_trials" id="optuna_trials" value="20">
+      </div>
+
+      <div class="form-group">
+        <label><input type="checkbox" name="compute_shap"> Compute SHAP Explainability (may be slow)</label>
+      </div>
+
+      <div class="form-group">
+        <label for="shap_max_samples">Max SHAP sample size (recommended ≤200)</label>
+        <input type="number" name="shap_max_samples" id="shap_max_samples" value="200">
+      </div>
+
+      <button type="submit">Run AutoML</button>
+    </form>
+  </div>
+</body>
+</html>
