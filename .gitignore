@@ -1,10 +1,48 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
-uploads/
-models/
-reports/
-preprocessed/
-static/plots/
-.env
+*.py[cod]
+*$py.class
+*.so
+.Python
+preprocessed
+# Virtual Environments
+reports
+.venv
+experiments
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+tests
+# Application specific
+uploads/*
+!uploads/.gitkeep
+models/*
+!models/.gitkeep
+reports/*
+!reports/.gitkeep
+preprocessed/*
+!preprocessed/.gitkeep
+experiments/*
+!experiments/.gitkeep
+static/plots/*
+!static/plots/.gitkeep
+old version/
+
+# Logs
+*.log
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Environment
+.env
+
+# Testing
+.pytest_cache/
+.coverage
+
+.claude
+*.md

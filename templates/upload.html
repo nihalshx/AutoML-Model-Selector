@@ -1,64 +1,1033 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AutoML Model Selector</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-  <div class="container">
-    <h1>AutoML Model Selector</h1>
-    <p>Upload a CSV file and specify the target column. The app will train and rank multiple models automatically.</p>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #818cf8;
+      --secondary: #0ea5e9;
+      --accent: #f59e0b;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --dark: #1e293b;
+      --gray-900: #0f172a;
+      --gray-800: #1e293b;
+      --gray-700: #334155;
+      --gray-600: #475569;
+      --gray-500: #64748b;
+      --gray-400: #94a3b8;
+      --gray-300: #cbd5e1;
+      --gray-200: #e2e8f0;
+      --gray-100: #f1f5f9;
+      --gray-50: #f8fafc;
+      --white: #ffffff;
+      --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-2: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+      --gradient-3: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+      --radius-sm: 0.375rem;
+      --radius: 0.5rem;
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+    }
 
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-900);
+      min-height: 100vh;
+      color: var(--gray-100);
+      line-height: 1.6;
+    }
+
+    /* Animated Background */
+    .bg-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background: var(--gray-900);
+      overflow: hidden;
+    }
+
+    .bg-animation::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+                  radial-gradient(circle at 40% 40%, rgba(14, 165, 233, 0.1) 0%, transparent 40%);
+      animation: float 20s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      33% { transform: translate(2%, 2%) rotate(1deg); }
+      66% { transform: translate(-1%, 1%) rotate(-1deg); }
+    }
+
+    /* Navigation */
+    .navbar {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .navbar-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--gradient-2);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .nav-link {
+      color: var(--gray-400);
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-link.active {
+      color: var(--white);
+      background: rgba(99, 102, 241, 0.2);
+    }
+
+    /* Main Container */
+    .main-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 0.5rem 1rem;
+      border-radius: 100px;
+      font-size: 0.85rem;
+      color: var(--primary-light);
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-title {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--white) 0%, var(--gray-400) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--gray-400);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Flash Messages */
+    .flash-container {
+      margin-bottom: 2rem;
+    }
+
+    .flash-message {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius-md);
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .flash-message.error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    .flash-message.warning {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fcd34d;
+    }
+
+    .flash-icon {
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    /* Card */
+    .card {
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--gradient-2);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--white);
+    }
+
+    .card-description {
+      font-size: 0.875rem;
+      color: var(--gray-400);
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--gray-200);
+      font-size: 0.9rem;
+    }
+
+    .form-label .required {
+      color: var(--danger);
+    }
+
+    .form-input,
+    .form-select {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      color: var(--white);
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    .form-input::placeholder {
+      color: var(--gray-500);
+    }
+
+    .form-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1.25rem;
+      padding-right: 3rem;
+    }
+
+    .form-select option {
+      background: var(--gray-800);
+      color: var(--white);
+    }
+
+    .form-hint {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      margin-top: 0.5rem;
+    }
+
+    /* File Upload */
+    .file-upload {
+      position: relative;
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .file-upload:hover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .file-upload.dragover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
+      transform: scale(1.01);
+    }
+
+    .file-upload input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-upload-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .file-upload-text {
+      font-size: 1rem;
+      color: var(--gray-300);
+      margin-bottom: 0.5rem;
+    }
+
+    .file-upload-hint {
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+
+    .file-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(99, 102, 241, 0.2);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: var(--primary-light);
+    }
+
+    /* Checkbox */
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .checkbox-group:hover {
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .checkbox-input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .checkbox-content {
+      flex: 1;
+    }
+
+    .checkbox-label {
+      font-weight: 500;
+      color: var(--gray-200);
+      font-size: 0.95rem;
+    }
+
+    .checkbox-hint {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      margin-top: 0.25rem;
+    }
+
+    /* Preview Section */
+    .preview-section {
+      display: none;
+      margin-top: 1.5rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .preview-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .preview-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .preview-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .stat-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 1.25rem;
+      border-radius: var(--radius-md);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary-light);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Data Table */
+    .table-container {
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .data-table th {
+      background: rgba(99, 102, 241, 0.2);
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-200);
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--gray-400);
+      white-space: nowrap;
+    }
+
+    .data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--gradient-2);
+      color: var(--white);
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--gray-300);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--white);
+    }
+
+    .btn-full {
+      width: 100%;
+    }
+
+    .btn-lg {
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+    }
+
+    /* Advanced Options Toggle */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0.5rem 0;
+      margin-bottom: 1rem;
+      transition: color 0.2s;
+    }
+
+    .advanced-toggle:hover {
+      color: var(--white);
+    }
+
+    .advanced-toggle-icon {
+      transition: transform 0.3s;
+    }
+
+    .advanced-toggle.open .advanced-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .advanced-content {
+      display: none;
+    }
+
+    .advanced-content.open {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .options-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-title {
+        font-size: 2rem;
+      }
+
+      .hero-subtitle {
+        font-size: 1rem;
+      }
+
+      .card {
+        padding: 1.5rem;
+      }
+
+      .navbar {
+        padding: 1rem;
+      }
+
+      .navbar-content {
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+
+    /* Accessibility */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Focus Styles */
+    *:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-animation"></div>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="/" class="logo">
+        <div class="logo-icon">AI</div>
+        <span>AutoML</span>
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-link active">Home</a>
+        <a href="/experiments" class="nav-link">Experiments</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main-container">
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-badge">
+        <span>Powered by Machine Learning</span>
+      </div>
+      <h1 class="hero-title">AutoML Model Selector</h1>
+      <p class="hero-subtitle">Upload your dataset and let AI automatically find the best machine learning model for your data</p>
+    </section>
+
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul class="flash-messages">
-          {% for msg in messages %}
-            <li>{{ msg }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
+    {% if messages %}
+    <div class="flash-container">
+      {% for msg in messages %}
+      <div class="flash-message {% if 'warning' in msg|lower or msg.startswith('Warning') %}warning{% else %}error{% endif %}">
+        <span class="flash-icon">{% if 'warning' in msg|lower or msg.startswith('Warning') %}&#9888;{% else %}&#10060;{% endif %}</span>
+        <span>{{ msg }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% endwith %}
 
-    <form method="POST" enctype="multipart/form-data">
-      <div class="form-group">
-        <label for="dataset">Dataset (.csv)</label>
-        <input type="file" name="dataset" id="dataset" required>
+    <form method="POST" enctype="multipart/form-data" id="uploadForm" aria-label="AutoML Dataset Upload Form">
+      <!-- Upload Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">1</div>
+          <div>
+            <h2 class="card-title">Upload Dataset</h2>
+            <p class="card-description">Select a CSV file to analyze</p>
+          </div>
+        </div>
+
+        <div class="file-upload" id="fileUpload">
+          <input type="file" name="dataset" id="dataset" accept=".csv" required aria-describedby="dataset-help">
+          <div class="file-upload-icon">&#128193;</div>
+          <div class="file-upload-text">Drop your CSV file here or click to browse</div>
+          <div class="file-upload-hint" id="dataset-help">Maximum file size: 100MB</div>
+          <div class="file-name" id="fileName" style="display: none;"></div>
+        </div>
+
+        <button type="button" class="btn btn-secondary" id="previewBtn" style="display: none; margin-top: 1rem;">
+          Preview Dataset
+        </button>
+
+        <div class="preview-section" id="previewSection">
+          <div id="previewContent"></div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="target_col">Target Column Name</label>
-        <input type="text" name="target_col" id="target_col" placeholder="e.g. label" required>
+      <!-- Configuration Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">2</div>
+          <div>
+            <h2 class="card-title">Configure</h2>
+            <p class="card-description">Set up your ML task parameters</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="target_col">
+            Target Column <span class="required">*</span>
+          </label>
+          <input type="text" class="form-input" name="target_col" id="target_col"
+                 placeholder="Enter the column name to predict" required aria-describedby="target-help">
+          <p class="form-hint" id="target-help">The column containing values you want to predict</p>
+          <select class="form-select" id="targetColSelect" style="margin-top: 0.75rem; display: none;"
+                  aria-label="Select target column from dataset">
+            <option value="">-- Or select from your dataset --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="task_type">
+            Task Type <span class="required">*</span>
+          </label>
+          <select class="form-select" name="task_type" id="task_type" aria-required="true">
+            <option value="classification">Classification (Categories/Labels)</option>
+            <option value="regression">Regression (Continuous Values)</option>
+          </select>
+        </div>
+
+        <!-- Advanced Options -->
+        <button type="button" class="advanced-toggle" id="advancedToggle">
+          <span>Advanced Options</span>
+          <span class="advanced-toggle-icon">&#9660;</span>
+        </button>
+
+        <div class="advanced-content" id="advancedContent">
+          <div class="options-grid">
+            <label class="checkbox-group">
+              <input type="checkbox" class="checkbox-input" name="feature_engineering" id="feature_engineering">
+              <div class="checkbox-content">
+                <div class="checkbox-label">Feature Engineering</div>
+                <div class="checkbox-hint">Automatically create new features from existing ones</div>
+              </div>
+            </label>
+
+            <label class="checkbox-group">
+              <input type="checkbox" class="checkbox-input" name="use_optuna" id="use_optuna">
+              <div class="checkbox-content">
+                <div class="checkbox-label">Hyperparameter Tuning (Optuna)</div>
+                <div class="checkbox-hint">Optimize model parameters for better accuracy</div>
+              </div>
+            </label>
+
+            <div class="form-group" id="optunaTrialsGroup" style="display: none; margin-top: 0.5rem; margin-left: 2rem;">
+              <label class="form-label" for="optuna_trials">Number of Trials</label>
+              <input type="number" class="form-input" name="optuna_trials" id="optuna_trials"
+                     value="20" min="5" max="100" aria-describedby="optuna-help">
+              <p class="form-hint" id="optuna-help">More trials = better results but slower (5-100)</p>
+            </div>
+
+            <label class="checkbox-group">
+              <input type="checkbox" class="checkbox-input" name="compute_shap" id="compute_shap">
+              <div class="checkbox-content">
+                <div class="checkbox-label">Model Explainability (SHAP)</div>
+                <div class="checkbox-hint">Generate feature importance analysis</div>
+              </div>
+            </label>
+
+            <div class="form-group" id="shapSamplesGroup" style="display: none; margin-top: 0.5rem; margin-left: 2rem;">
+              <label class="form-label" for="shap_max_samples">SHAP Sample Size</label>
+              <input type="number" class="form-input" name="shap_max_samples" id="shap_max_samples"
+                     value="200" min="50" max="1000" aria-describedby="shap-help">
+              <p class="form-hint" id="shap-help">Number of samples for analysis (50-1000)</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="task_type">Task Type</label>
-        <select name="task_type" id="task_type">
-          <option value="classification">Classification</option>
-          <option value="regression">Regression</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label><input type="checkbox" name="use_optuna"> Enable Optuna Hyperparameter Tuning</label>
-      </div>
-
-      <div class="form-group">
-        <label for="optuna_trials">Optuna trials (recommended 10-50)</label>
-        <input type="number" name="optuna_trials" id="optuna_trials" value="20">
-      </div>
-
-      <div class="form-group">
-        <label><input type="checkbox" name="compute_shap"> Compute SHAP Explainability (may be slow)</label>
-      </div>
-
-      <div class="form-group">
-        <label for="shap_max_samples">Max SHAP sample size (recommended ≤200)</label>
-        <input type="number" name="shap_max_samples" id="shap_max_samples" value="200">
-      </div>
-
-      <button type="submit">Run AutoML</button>
+      <!-- Submit Button -->
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="submitBtn">
+        <span id="submitText">Start AutoML Training</span>
+      </button>
     </form>
-  </div>
+  </main>
+
+  <script>
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return 'N/A';
+      const div = document.createElement('div');
+      div.textContent = String(text);
+      return div.innerHTML;
+    }
+
+    // File Upload
+    const fileUpload = document.getElementById('fileUpload');
+    const fileInput = document.getElementById('dataset');
+    const fileName = document.getElementById('fileName');
+    const previewBtn = document.getElementById('previewBtn');
+
+    ['dragenter', 'dragover'].forEach(event => {
+      fileUpload.addEventListener(event, (e) => {
+        e.preventDefault();
+        fileUpload.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(event => {
+      fileUpload.addEventListener(event, (e) => {
+        e.preventDefault();
+        fileUpload.classList.remove('dragover');
+      });
+    });
+
+    fileUpload.addEventListener('drop', (e) => {
+      const files = e.dataTransfer.files;
+      if (files.length) {
+        fileInput.files = files;
+        updateFileName(files[0].name);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        updateFileName(e.target.files[0].name);
+      }
+    });
+
+    function updateFileName(name) {
+      fileName.innerHTML = `&#128196; ${escapeHtml(name)}`;
+      fileName.style.display = 'inline-flex';
+      previewBtn.style.display = 'inline-flex';
+    }
+
+    // Advanced Options Toggle
+    const advancedToggle = document.getElementById('advancedToggle');
+    const advancedContent = document.getElementById('advancedContent');
+
+    advancedToggle.addEventListener('click', () => {
+      advancedToggle.classList.toggle('open');
+      advancedContent.classList.toggle('open');
+    });
+
+    // Optuna checkbox
+    document.getElementById('use_optuna').addEventListener('change', function() {
+      document.getElementById('optunaTrialsGroup').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // SHAP checkbox
+    document.getElementById('compute_shap').addEventListener('change', function() {
+      document.getElementById('shapSamplesGroup').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Target column selector
+    document.getElementById('targetColSelect').addEventListener('change', function() {
+      if (this.value) {
+        document.getElementById('target_col').value = this.value;
+      }
+    });
+
+    // Preview functionality
+    let previewData = null;
+
+    previewBtn.addEventListener('click', async function() {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const previewSection = document.getElementById('previewSection');
+      const previewContent = document.getElementById('previewContent');
+
+      previewSection.classList.add('active');
+      previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray-400);"><div class="spinner" style="margin: 0 auto 1rem;"></div>Loading preview...</div>';
+
+      try {
+        const formData = new FormData();
+        formData.append('dataset', file);
+
+        const response = await fetch('/api/preview', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) throw new Error('Failed to load preview');
+
+        previewData = await response.json();
+
+        let html = `
+          <div class="preview-stats">
+            <div class="stat-card">
+              <div class="stat-value">${parseInt(previewData.shape.rows) || 0}</div>
+              <div class="stat-label">Rows</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${parseInt(previewData.shape.columns) || 0}</div>
+              <div class="stat-label">Columns</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${Array.isArray(previewData.numeric_columns) ? previewData.numeric_columns.length : 0}</div>
+              <div class="stat-label">Numeric</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${Array.isArray(previewData.categorical_columns) ? previewData.categorical_columns.length : 0}</div>
+              <div class="stat-label">Categorical</div>
+            </div>
+          </div>
+        `;
+
+        // Update column selector
+        const targetSelect = document.getElementById('targetColSelect');
+        targetSelect.innerHTML = '<option value="">-- Or select from your dataset --</option>';
+        if (Array.isArray(previewData.columns)) {
+          previewData.columns.forEach(col => {
+            const option = document.createElement('option');
+            option.value = col;
+            option.textContent = col;
+            targetSelect.appendChild(option);
+          });
+          targetSelect.style.display = 'block';
+        }
+
+        // Sample data table
+        if (previewData.sample && previewData.sample.length > 0) {
+          html += '<div class="table-container"><table class="data-table"><thead><tr>';
+          previewData.columns.forEach(col => {
+            html += `<th>${escapeHtml(col)}</th>`;
+          });
+          html += '</tr></thead><tbody>';
+
+          previewData.sample.slice(0, 5).forEach(row => {
+            html += '<tr>';
+            previewData.columns.forEach(col => {
+              html += `<td>${escapeHtml(row[col])}</td>`;
+            });
+            html += '</tr>';
+          });
+          html += '</tbody></table></div>';
+        }
+
+        previewContent.innerHTML = html;
+
+      } catch (error) {
+        previewContent.innerHTML = `<div style="color: var(--danger); padding: 1rem;">Error: ${escapeHtml(error.message)}</div>`;
+      }
+    });
+
+    // Form submission
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+      const fileInput = document.getElementById('dataset');
+      const targetCol = document.getElementById('target_col').value.trim();
+
+      if (!fileInput.files.length) {
+        e.preventDefault();
+        alert('Please select a CSV file');
+        return;
+      }
+
+      if (!targetCol) {
+        e.preventDefault();
+        alert('Please enter the target column name');
+        return;
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      const submitText = document.getElementById('submitText');
+      submitBtn.disabled = true;
+      submitText.innerHTML = '<span class="spinner"></span> Processing... This may take a few minutes';
+    });
+  </script>
 </body>
+
 </html>

@@ -2,120 +2,1071 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <title>AutoML Results</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results - {{ results.best_model_name }} | AutoML</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #818cf8;
+      --secondary: #0ea5e9;
+      --accent: #f59e0b;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --gray-900: #0f172a;
+      --gray-800: #1e293b;
+      --gray-700: #334155;
+      --gray-600: #475569;
+      --gray-500: #64748b;
+      --gray-400: #94a3b8;
+      --gray-300: #cbd5e1;
+      --gray-200: #e2e8f0;
+      --gray-100: #f1f5f9;
+      --white: #ffffff;
+      --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-2: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+      --gradient-3: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      --radius-sm: 0.375rem;
+      --radius: 0.5rem;
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gray-900);
+      min-height: 100vh;
+      color: var(--gray-100);
+      line-height: 1.6;
+    }
+
+    .bg-animation {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: -1;
+      background: var(--gray-900);
+    }
+
+    .bg-animation::before {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+    }
+
+    /* Navbar */
+    .navbar {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .navbar-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: var(--gradient-2);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .nav-link {
+      color: var(--gray-400);
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 3rem 2rem;
+    }
+
+    .hero-content {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 0.5rem 1rem;
+      border-radius: 100px;
+      font-size: 0.85rem;
+      color: #6ee7b7;
+      margin-bottom: 1rem;
+    }
+
+    .hero-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--white);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: var(--gray-400);
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .hero-stat {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 1.25rem;
+      border-radius: var(--radius-lg);
+    }
+
+    .hero-stat-label {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.25rem;
+    }
+
+    .hero-stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    .hero-stat-value.highlight {
+      color: var(--success);
+    }
+
+    /* Main Content */
+    .main-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-icon {
+      width: 44px; height: 44px;
+      background: var(--gradient-2);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    /* Cards */
+    .card {
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .metric-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: var(--gradient-2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 0.25rem;
+    }
+
+    /* Leaderboard Table */
+    .table-container {
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th {
+      background: rgba(99, 102, 241, 0.2);
+      padding: 1rem 1.25rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-200);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .data-table td {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--gray-300);
+    }
+
+    .data-table tbody tr {
+      transition: background 0.2s;
+    }
+
+    .data-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .data-table .winner {
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .data-table .winner td {
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .rank-1 {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #000;
+    }
+
+    .rank-2 {
+      background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+      color: #000;
+    }
+
+    .rank-3 {
+      background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%);
+      color: #000;
+    }
+
+    .rank-other {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--gray-400);
+    }
+
+    .metric-cell {
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-weight: 600;
+      color: var(--primary-light);
+    }
+
+    /* Plots Grid */
+    .plots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .plots-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .plot-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      transition: transform 0.2s;
+    }
+
+    .plot-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .plot-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-weight: 600;
+      color: var(--white);
+    }
+
+    .plot-image {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* SHAP Section */
+    .shap-section {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .shap-info {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid var(--primary);
+    }
+
+    .shap-info p {
+      color: var(--gray-300);
+      font-size: 0.95rem;
+    }
+
+    /* Downloads */
+    .downloads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .download-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .download-card:hover {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: rgba(99, 102, 241, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .download-icon {
+      width: 50px; height: 50px;
+      background: var(--gradient-2);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .download-info {
+      flex: 1;
+    }
+
+    .download-title {
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 0.25rem;
+    }
+
+    .download-desc {
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+
+    /* Classification Report */
+    .report-box {
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .report-box pre {
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 0.85rem;
+      color: var(--gray-300);
+      line-height: 1.8;
+      margin: 0;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--gradient-2);
+      color: var(--white);
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--gray-300);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--white);
+    }
+
+    .actions-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-title { font-size: 1.75rem; }
+      .main-container { padding: 1rem; }
+      .card { padding: 1rem; }
+      .metric-value { font-size: 2rem; }
+      .navbar { padding: 1rem; }
+      .navbar-content { flex-direction: column; gap: 1rem; }
+    }
+
+    /* Lightbox Modal */
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .lightbox.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @keyframes lightboxFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .lightbox-content {
+      position: relative;
+      max-width: 95%;
+      max-height: 95%;
+      animation: zoomIn 0.3s ease;
+    }
+
+    @keyframes zoomIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .lightbox-image {
+      max-width: 100%;
+      max-height: 85vh;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: -50px;
+      right: 0;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--white);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: rotate(90deg);
+    }
+
+    .lightbox-title {
+      position: absolute;
+      bottom: -45px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--gray-300);
+      font-size: 1rem;
+      font-weight: 500;
+      white-space: nowrap;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+    }
+
+    .lightbox-nav {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--white);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      z-index: 1001;
+    }
+
+    .lightbox-nav:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .lightbox-prev {
+      left: 20px;
+    }
+
+    .lightbox-next {
+      right: 20px;
+    }
+
+    .lightbox-counter {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--gray-400);
+      font-size: 0.9rem;
+    }
+
+    /* Make plot cards clickable */
+    .plot-card {
+      cursor: zoom-in;
+    }
+
+    .plot-card .plot-image {
+      transition: transform 0.3s, filter 0.3s;
+    }
+
+    .plot-card:hover .plot-image {
+      transform: scale(1.02);
+      filter: brightness(1.05);
+    }
+
+    .plot-card .plot-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .plot-card .zoom-hint {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .plot-card:hover .zoom-hint {
+      opacity: 1;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="container">
-        <h1>AutoML Results</h1>
-        <p><strong>Run ID:</strong> {{ results.run_id }}</p>
-        <p><strong>Best Model:</strong> {{ results.best_model_name }}</p>
+  <div class="bg-animation"></div>
 
-        <h2>Model Leaderboard</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Model</th>
-                    {% if task_type == 'classification' %}
-                    <th>Accuracy</th>
-                    <th>F1-score</th>
-                    {% else %}
-                    <th>R2 Score</th>
-                    <th>MAE</th>
-                    <th>MSE</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for m in results.models_metrics %}
-                <tr {% if m.model_name==results.best_model_name %}class="highlight" {% endif %}>
-                    <td>{{ m.model_name }}</td>
-                    {% if task_type == 'classification' %}
-                    <td>{{ "%.4f"|format(m.accuracy) }}</td>
-                    <td>{{ "%.4f"|format(m.f1) }}</td>
-                    {% else %}
-                    <td>{{ "%.4f"|format(m.r2) }}</td>
-                    <td>{{ "%.4f"|format(m.mae) }}</td>
-                    <td>{{ "%.4f"|format(m.mse) }}</td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="/" class="logo">
+        <div class="logo-icon">AI</div>
+        <span>AutoML</span>
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/experiments" class="nav-link">Experiments</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="success-badge">
+        <span>&#10003;</span>
+        <span>Training Complete</span>
+      </div>
+      <h1 class="hero-title">{{ results.best_model_name }} Wins!</h1>
+      <p class="hero-subtitle">Run ID: {{ results.run_id[:8] }}... | Task: {{ task_type|title }}</p>
+
+      <div class="hero-stats">
+        {% if task_type == 'classification' %}
+        {% set best = results.models_metrics[0] %}
+        <div class="hero-stat">
+          <div class="hero-stat-label">Accuracy</div>
+          <div class="hero-stat-value highlight">{{ "%.1f"|format(best.accuracy * 100) }}%</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">F1-Score</div>
+          <div class="hero-stat-value">{{ "%.3f"|format(best.f1) }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Precision</div>
+          <div class="hero-stat-value">{{ "%.3f"|format(best.get('precision', 0)) }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Recall</div>
+          <div class="hero-stat-value">{{ "%.3f"|format(best.get('recall', 0)) }}</div>
+        </div>
+        {% else %}
+        {% set best = results.models_metrics[0] %}
+        <div class="hero-stat">
+          <div class="hero-stat-label">R² Score</div>
+          <div class="hero-stat-value highlight">{{ "%.3f"|format(best.r2) }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">MAE</div>
+          <div class="hero-stat-value">{{ "%.3f"|format(best.mae) }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">RMSE</div>
+          <div class="hero-stat-value">{{ "%.3f"|format(best.get('rmse', 0)) }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Models Tested</div>
+          <div class="hero-stat-value">{{ results.models_metrics|length }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <main class="main-container">
+    <!-- Model Leaderboard -->
+    <section class="section">
+      <div class="section-header">
+        <div class="section-icon">&#127942;</div>
+        <h2 class="section-title">Model Leaderboard</h2>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Model</th>
+              {% if task_type == 'classification' %}
+              <th>Accuracy</th>
+              <th>F1-Score</th>
+              <th>Precision</th>
+              <th>Recall</th>
+              {% else %}
+              <th>R² Score</th>
+              <th>MAE</th>
+              <th>RMSE</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in results.models_metrics %}
+            <tr {% if loop.index == 1 %}class="winner"{% endif %}>
+              <td>
+                <span class="rank-badge {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-other{% endif %}">
+                  {{ loop.index }}
+                </span>
+              </td>
+              <td>{% if loop.index == 1 %}&#127942; {% endif %}{{ m.model_name }}</td>
+              {% if task_type == 'classification' %}
+              <td class="metric-cell">{{ "%.4f"|format(m.accuracy) }}</td>
+              <td class="metric-cell">{{ "%.4f"|format(m.f1) }}</td>
+              <td class="metric-cell">{{ "%.4f"|format(m.get('precision', 0)) }}</td>
+              <td class="metric-cell">{{ "%.4f"|format(m.get('recall', 0)) }}</td>
+              {% else %}
+              <td class="metric-cell">{{ "%.4f"|format(m.r2) }}</td>
+              <td class="metric-cell">{{ "%.3f"|format(m.mae) }}</td>
+              <td class="metric-cell">{{ "%.3f"|format(m.get('rmse', 0)) }}</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
         </table>
+      </div>
+    </section>
 
-        <h2>Plots</h2>
+    <!-- Visualizations -->
+    <section class="section">
+      <div class="section-header">
+        <div class="section-icon">&#128200;</div>
+        <h2 class="section-title">Visualizations</h2>
+      </div>
 
-        <div class="plots">
-            <div>
-                <h3>Model Performance</h3>
-                <img src="{{ scores_img_url }}" alt="Model Scores">
-            </div>
-
-            {% if task_type == 'classification' %}
-            <div>
-                <h3>Confusion Matrix</h3>
-                <img src="{{ confusion_img_url }}" alt="Confusion Matrix">
-            </div>
-
-            {% if roc_img_url %}
-            <div>
-                <h3>ROC Curve (Binary)</h3>
-                <img src="{{ roc_img_url }}" alt="ROC Curve">
-            </div>
-            {% endif %}
-
-            {% else %}
-            <!-- Regression Plots -->
-            {% if actual_vs_predicted_img_url %}
-            <div>
-                <h3>Actual vs Predicted</h3>
-                <img src="{{ actual_vs_predicted_img_url }}" alt="Actual vs Predicted">
-            </div>
-            {% endif %}
-
-            {% if residuals_img_url %}
-            <div>
-                <h3>Residuals</h3>
-                <img src="{{ residuals_img_url }}" alt="Residuals">
-            </div>
-            {% endif %}
-            {% endif %}
-        </div>
-
-        {% if shap_summary_url or shap_bar_url %}
-        <h2>SHAP Explainability</h2>
-        {% if shap_summary_url %}
-        <div>
-            <h3>SHAP Summary</h3><img src="{{ shap_summary_url }}" alt="SHAP Summary">
+      <div class="plots-grid">
+        {% if image_urls.scores %}
+        <div class="plot-card" onclick="openLightbox(this)">
+          <div class="plot-header">
+            <span>Model Comparison</span>
+            <span class="zoom-hint">Click to enlarge</span>
+          </div>
+          <img src="{{ image_urls.scores }}" alt="Model Scores" class="plot-image" data-title="Model Comparison">
         </div>
         {% endif %}
-        {% if shap_bar_url %}
-        <div>
-            <h3>Feature Importance (mean |SHAP|)</h3><img src="{{ shap_bar_url }}" alt="SHAP Feature Importance">
-        </div>
-        {% endif %}
-
-        {% if shap_csv_url %}
-        <p><a href="{{ shap_csv_url }}">Download SHAP feature importances (CSV)</a></p>
-        {% endif %}
-        {% endif %}
-
-        <h2>Downloads</h2>
-        <ul>
-            <li><a href="{{ model_download_url }}">Download Best Model (.pkl)</a></li>
-            <li><a href="{{ preprocessed_download_url }}">Download Preprocessed Dataset (.csv)</a></li>
-            <li><a href="{{ report_download_url }}">Download HTML Performance Report</a></li>
-        </ul>
 
         {% if task_type == 'classification' %}
-        <h2>Classification Report (Text)</h2>
-        <pre>{{ results.classification_report_text }}</pre>
+          {% if image_urls.confusion %}
+          <div class="plot-card" onclick="openLightbox(this)">
+            <div class="plot-header">
+              <span>Confusion Matrix</span>
+              <span class="zoom-hint">Click to enlarge</span>
+            </div>
+            <img src="{{ image_urls.confusion }}" alt="Confusion Matrix" class="plot-image" data-title="Confusion Matrix">
+          </div>
+          {% endif %}
+
+          {% if image_urls.roc %}
+          <div class="plot-card" onclick="openLightbox(this)">
+            <div class="plot-header">
+              <span>ROC Curve</span>
+              <span class="zoom-hint">Click to enlarge</span>
+            </div>
+            <img src="{{ image_urls.roc }}" alt="ROC Curve" class="plot-image" data-title="ROC Curve">
+          </div>
+          {% endif %}
+        {% else %}
+          {% if image_urls.actual_vs_predicted %}
+          <div class="plot-card" onclick="openLightbox(this)">
+            <div class="plot-header">
+              <span>Actual vs Predicted</span>
+              <span class="zoom-hint">Click to enlarge</span>
+            </div>
+            <img src="{{ image_urls.actual_vs_predicted }}" alt="Actual vs Predicted" class="plot-image" data-title="Actual vs Predicted">
+          </div>
+          {% endif %}
+
+          {% if image_urls.residuals %}
+          <div class="plot-card" onclick="openLightbox(this)">
+            <div class="plot-header">
+              <span>Residuals Analysis</span>
+              <span class="zoom-hint">Click to enlarge</span>
+            </div>
+            <img src="{{ image_urls.residuals }}" alt="Residuals" class="plot-image" data-title="Residuals Analysis">
+          </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- SHAP Explainability -->
+    {% if shap_urls.summary or shap_urls.bar %}
+    <section class="shap-section">
+      <div class="section-header">
+        <div class="section-icon">&#128269;</div>
+        <h2 class="section-title">Model Explainability (SHAP)</h2>
+      </div>
+
+      <div class="shap-info">
+        <p><strong>What is SHAP?</strong> SHAP values show the impact each feature has on predictions. Higher values indicate more influence on the model's decisions.</p>
+      </div>
+
+      <div class="plots-grid">
+        {% if shap_urls.summary %}
+        <div class="plot-card" onclick="openLightbox(this)">
+          <div class="plot-header">
+            <span>SHAP Summary</span>
+            <span class="zoom-hint">Click to enlarge</span>
+          </div>
+          <img src="{{ shap_urls.summary }}" alt="SHAP Summary" class="plot-image" data-title="SHAP Summary">
+        </div>
         {% endif %}
 
-        <p><a href="{{ url_for('upload_file') }}">Run another experiment</a></p>
+        {% if shap_urls.bar %}
+        <div class="plot-card" onclick="openLightbox(this)">
+          <div class="plot-header">
+            <span>Feature Importance</span>
+            <span class="zoom-hint">Click to enlarge</span>
+          </div>
+          <img src="{{ shap_urls.bar }}" alt="Feature Importance" class="plot-image" data-title="Feature Importance">
+        </div>
+        {% endif %}
+      </div>
+
+      {% if shap_urls.csv %}
+      <a href="{{ shap_urls.csv }}" class="btn btn-secondary" style="margin-top: 1rem;">
+        Download SHAP Values (CSV)
+      </a>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Classification Report -->
+    {% if task_type == 'classification' and results.classification_report_text %}
+    <section class="section">
+      <div class="section-header">
+        <div class="section-icon">&#128203;</div>
+        <h2 class="section-title">Classification Report</h2>
+      </div>
+
+      <div class="report-box">
+        <pre>{{ results.classification_report_text }}</pre>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Downloads -->
+    <section class="section">
+      <div class="section-header">
+        <div class="section-icon">&#128229;</div>
+        <h2 class="section-title">Download Artifacts</h2>
+      </div>
+
+      <div class="downloads-grid">
+        <a href="{{ download_urls.model }}" class="download-card">
+          <div class="download-icon">&#129302;</div>
+          <div class="download-info">
+            <div class="download-title">Trained Model</div>
+            <div class="download-desc">Best model pipeline (.pkl)</div>
+          </div>
+        </a>
+
+        <a href="{{ download_urls.preprocessed }}" class="download-card">
+          <div class="download-icon">&#128202;</div>
+          <div class="download-info">
+            <div class="download-title">Preprocessed Data</div>
+            <div class="download-desc">Transformed features (.csv)</div>
+          </div>
+        </a>
+
+        <a href="{{ download_urls.report }}" class="download-card">
+          <div class="download-icon">&#128196;</div>
+          <div class="download-info">
+            <div class="download-title">Full Report</div>
+            <div class="download-desc">Detailed analysis (.html)</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Actions -->
+    <div class="actions-bar">
+      <a href="{{ url_for('upload_file') }}" class="btn btn-primary">Run New Experiment</a>
+      <a href="{{ url_for('list_experiments') }}" class="btn btn-secondary">View All Experiments</a>
+      <a href="{{ download_urls.report }}" class="btn btn-secondary">Download Full Report</a>
     </div>
+  </main>
+
+  <!-- Lightbox Modal -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-nav lightbox-prev" onclick="navigateLightbox(-1)">&#10094;</button>
+    <button class="lightbox-nav lightbox-next" onclick="navigateLightbox(1)">&#10095;</button>
+    <div class="lightbox-content">
+      <button class="lightbox-close" onclick="closeLightbox()">&#10005;</button>
+      <img src="" alt="" class="lightbox-image" id="lightbox-image">
+      <div class="lightbox-title" id="lightbox-title"></div>
+    </div>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
+  </div>
+
+  <script>
+    console.log('AutoML Results loaded');
+    console.log('Run ID:', {{ results.run_id | tojson }});
+    console.log('Best Model:', {{ results.best_model_name | tojson }});
+
+    // Lightbox functionality
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImage = document.getElementById('lightbox-image');
+    const lightboxTitle = document.getElementById('lightbox-title');
+    const lightboxCounter = document.getElementById('lightbox-counter');
+
+    let allImages = [];
+    let currentIndex = 0;
+
+    // Collect all plot images
+    document.querySelectorAll('.plot-card .plot-image').forEach((img, index) => {
+      allImages.push({
+        src: img.src,
+        title: img.dataset.title || img.alt
+      });
+    });
+
+    function openLightbox(card) {
+      const img = card.querySelector('.plot-image');
+      const src = img.src;
+      const title = img.dataset.title || img.alt;
+
+      // Find index of clicked image
+      currentIndex = allImages.findIndex(item => item.src === src);
+      if (currentIndex === -1) currentIndex = 0;
+
+      showImage(currentIndex);
+      lightbox.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function showImage(index) {
+      if (index < 0) index = allImages.length - 1;
+      if (index >= allImages.length) index = 0;
+      currentIndex = index;
+
+      lightboxImage.src = allImages[index].src;
+      lightboxTitle.textContent = allImages[index].title;
+      lightboxCounter.textContent = `${index + 1} / ${allImages.length}`;
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    function navigateLightbox(direction) {
+      showImage(currentIndex + direction);
+    }
+
+    // Close on background click
+    lightbox.addEventListener('click', function(e) {
+      if (e.target === lightbox) {
+        closeLightbox();
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+      if (!lightbox.classList.contains('active')) return;
+
+      switch(e.key) {
+        case 'Escape':
+          closeLightbox();
+          break;
+        case 'ArrowLeft':
+          navigateLightbox(-1);
+          break;
+        case 'ArrowRight':
+          navigateLightbox(1);
+          break;
+      }
+    });
+  </script>
 </body>
 
 </html>
