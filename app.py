@@ -281,7 +281,7 @@ def upload_file():
             download_urls = {
                 "model": url_for("download_model", filename=results["model_path"]),
                 "preprocessed": url_for("download_preprocessed", filename=results["preprocessed_path"]),
-                "report": url_for("download_report", filename=results["html_report_filename"])
+                "report": url_for("download_report", filename=results["pdf_report_filename"])
             }
 
             # Build image URLs based on task type
@@ -487,7 +487,7 @@ def download_preprocessed(filename):
 
 @app.route("/download/report/<path:filename>")
 def download_report(filename):
-    """Download HTML report."""
+    """Download PDF report."""
     try:
         if not is_safe_path(REPORTS_FOLDER, filename):
             logger.warning(f"Path traversal attempt detected: {filename}")

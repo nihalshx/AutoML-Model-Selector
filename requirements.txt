@@ -21,3 +21,6 @@ shap==0.44.0
 xgboost==2.0.3
 lightgbm==4.1.0
 catboost==1.2.2
+
+# PDF Report Generation
+reportlab==4.0.7

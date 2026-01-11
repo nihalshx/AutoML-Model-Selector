@@ -31,6 +31,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 
+# PDF Report Generation
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Preformatted
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
 warnings.filterwarnings('ignore')
 
 logger = logging.getLogger(__name__)
@@ -765,59 +773,60 @@ def run_automl_classification(
     plot_model_scores(models_metrics_sorted, os.path.join(output_dirs["static"], scores_rel), "classification")
     
     report_text = classification_report(y_test, best_y_pred, target_names=class_names, zero_division=0)
-    
-    html_report_path = os.path.join(output_dirs["reports"], f"report_{run_id}.html")
-    with open(html_report_path, "w", encoding="utf-8") as f:
-        f.write(f"""
-        <html>
-        <head>
-            <title>AutoML Classification Report</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                h1 {{ color: #333; }}
-                table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #4CAF50; color: white; }}
-                tr:nth-child(even) {{ background-color: #f2f2f2; }}
-                pre {{ background-color: #f4f4f4; padding: 10px; border-radius: 5px; }}
-            </style>
-        </head>
-        <body>
-            <h1>AutoML Classification Report</h1>
-            <p><strong>Run ID:</strong> {run_id}</p>
-            <p><strong>Best Model:</strong> {best_name}</p>
-            <p><strong>Training Time:</strong> {(datetime.now() - start_time).total_seconds():.2f}s</p>
-            
-            <h2>Model Leaderboard</h2>
-            <table>
-                <tr>
-                    <th>Model</th>
-                    <th>Accuracy</th>
-                    <th>F1-Score</th>
-                    <th>Precision</th>
-                    <th>Recall</th>
-                </tr>
-        """)
-        
-        for m in models_metrics_sorted:
-            f.write(f"""
-                <tr>
-                    <td>{m['model_name']}</td>
-                    <td>{m['accuracy']:.4f}</td>
-                    <td>{m['f1']:.4f}</td>
-                    <td>{m['precision']:.4f}</td>
-                    <td>{m['recall']:.4f}</td>
-                </tr>
-            """)
-        
-        f.write(f"""
-            </table>
-            
-            <h2>Classification Report</h2>
-            <pre>{report_text}</pre>
-        </body>
-        </html>
-        """)
+
+    # Generate PDF Report
+    pdf_report_path = os.path.join(output_dirs["reports"], f"report_{run_id}.pdf")
+    doc = SimpleDocTemplate(pdf_report_path, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=20, spaceAfter=20, alignment=TA_CENTER, textColor=colors.HexColor('#333333'))
+    heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14, spaceAfter=10, spaceBefore=15, textColor=colors.HexColor('#333333'))
+    normal_style = ParagraphStyle('CustomNormal', parent=styles['Normal'], fontSize=10, spaceAfter=5)
+
+    elements = []
+
+    # Title
+    elements.append(Paragraph("AutoML Classification Report", title_style))
+    elements.append(Spacer(1, 10))
+
+    # Run Info
+    elements.append(Paragraph(f"<b>Run ID:</b> {run_id}", normal_style))
+    elements.append(Paragraph(f"<b>Best Model:</b> {best_name}", normal_style))
+    elements.append(Paragraph(f"<b>Training Time:</b> {(datetime.now() - start_time).total_seconds():.2f}s", normal_style))
+    elements.append(Spacer(1, 15))
+
+    # Model Leaderboard
+    elements.append(Paragraph("Model Leaderboard", heading_style))
+
+    table_data = [["Model", "Accuracy", "F1-Score", "Precision", "Recall"]]
+    for m in models_metrics_sorted:
+        table_data.append([m['model_name'], f"{m['accuracy']:.4f}", f"{m['f1']:.4f}", f"{m['precision']:.4f}", f"{m['recall']:.4f}"])
+
+    table = Table(table_data, colWidths=[2*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f9f9f9')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f2f2f2')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 15))
+
+    # Classification Report
+    elements.append(Paragraph("Classification Report", heading_style))
+    code_style = ParagraphStyle('Code', parent=styles['Code'], fontSize=8, fontName='Courier', backColor=colors.HexColor('#f4f4f4'), leftIndent=10, rightIndent=10, spaceBefore=5, spaceAfter=5)
+    elements.append(Preformatted(report_text, code_style))
+
+    doc.build(elements)
     
     shap_outputs = {"shap_summary_path": None, "shap_bar_path": None, "shap_csv_path": None}
     if compute_shap:
@@ -842,7 +851,7 @@ def run_automl_classification(
         "scores_plot_path": scores_rel,
         "preprocessed_path": os.path.basename(preprocessed_path),
         "model_path": os.path.basename(model_path),
-        "html_report_filename": os.path.basename(html_report_path),
+        "pdf_report_filename": os.path.basename(pdf_report_path),
         "classification_report_text": report_text,
         "class_names": class_names,
         **shap_outputs
@@ -970,52 +979,53 @@ def run_automl_regression(
     scores_rel = f"plots/scores_{run_id}.png"
     plot_model_scores(models_metrics_sorted, os.path.join(output_dirs["static"], scores_rel), "regression")
     
-    html_report_path = os.path.join(output_dirs["reports"], f"report_{run_id}.html")
-    with open(html_report_path, "w", encoding="utf-8") as f:
-        f.write(f"""
-        <html>
-        <head>
-            <title>AutoML Regression Report</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                h1 {{ color: #333; }}
-                table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #2196F3; color: white; }}
-                tr:nth-child(even) {{ background-color: #f2f2f2; }}
-            </style>
-        </head>
-        <body>
-            <h1>AutoML Regression Report</h1>
-            <p><strong>Run ID:</strong> {run_id}</p>
-            <p><strong>Best Model:</strong> {best_name}</p>
-            <p><strong>Training Time:</strong> {(datetime.now() - start_time).total_seconds():.2f}s</p>
-            
-            <h2>Model Leaderboard</h2>
-            <table>
-                <tr>
-                    <th>Model</th>
-                    <th>R² Score</th>
-                    <th>MAE</th>
-                    <th>RMSE</th>
-                </tr>
-        """)
-        
-        for m in models_metrics_sorted:
-            f.write(f"""
-                <tr>
-                    <td>{m['model_name']}</td>
-                    <td>{m['r2']:.4f}</td>
-                    <td>{m['mae']:.4f}</td>
-                    <td>{m['rmse']:.4f}</td>
-                </tr>
-            """)
-        
-        f.write("""
-            </table>
-        </body>
-        </html>
-        """)
+    # Generate PDF Report
+    pdf_report_path = os.path.join(output_dirs["reports"], f"report_{run_id}.pdf")
+    doc = SimpleDocTemplate(pdf_report_path, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=20, spaceAfter=20, alignment=TA_CENTER, textColor=colors.HexColor('#333333'))
+    heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14, spaceAfter=10, spaceBefore=15, textColor=colors.HexColor('#333333'))
+    normal_style = ParagraphStyle('CustomNormal', parent=styles['Normal'], fontSize=10, spaceAfter=5)
+
+    elements = []
+
+    # Title
+    elements.append(Paragraph("AutoML Regression Report", title_style))
+    elements.append(Spacer(1, 10))
+
+    # Run Info
+    elements.append(Paragraph(f"<b>Run ID:</b> {run_id}", normal_style))
+    elements.append(Paragraph(f"<b>Best Model:</b> {best_name}", normal_style))
+    elements.append(Paragraph(f"<b>Training Time:</b> {(datetime.now() - start_time).total_seconds():.2f}s", normal_style))
+    elements.append(Spacer(1, 15))
+
+    # Model Leaderboard
+    elements.append(Paragraph("Model Leaderboard", heading_style))
+
+    table_data = [["Model", "R² Score", "MAE", "RMSE"]]
+    for m in models_metrics_sorted:
+        table_data.append([m['model_name'], f"{m['r2']:.4f}", f"{m['mae']:.4f}", f"{m['rmse']:.4f}"])
+
+    table = Table(table_data, colWidths=[2.5*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2196F3')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f9f9f9')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f2f2f2')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+    ]))
+    elements.append(table)
+
+    doc.build(elements)
     
     shap_outputs = {"shap_summary_path": None, "shap_bar_path": None, "shap_csv_path": None}
     if compute_shap:
@@ -1040,7 +1050,7 @@ def run_automl_regression(
         "scores_plot_path": scores_rel,
         "preprocessed_path": os.path.basename(preprocessed_path),
         "model_path": os.path.basename(model_path),
-        "html_report_filename": os.path.basename(html_report_path),
+        "pdf_report_filename": os.path.basename(pdf_report_path),
         "task_type": "regression",
         **shap_outputs
     }
