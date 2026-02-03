@@ -42,3 +42,5 @@ reportlab==4.0.7
 # gunicorn==21.2.0
 
 # [2026-02-03T10:30:00] Add requirements.txt with core ML dependencies
+
+# [2026-02-03T10:30:00] Add requirements.txt with core ML dependencies
