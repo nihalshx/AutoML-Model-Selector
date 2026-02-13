@@ -567,3 +567,5 @@ def run_automl(
 # [2026-03-25T13:15:00] Refactor AutoML engine for pipeline extensibility
 
 # [2026-03-29T10:30:00] Performance optimization: parallel model training
+
+# [2026-02-13T11:30:00] Implement AutoML engine core selection logic
