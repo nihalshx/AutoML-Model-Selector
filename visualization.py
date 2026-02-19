@@ -365,3 +365,5 @@ def compute_and_save_shap(pipe, X_train, output_dirs, run_id, max_samples=200):
 # [2026-02-28T09:15:00] Improve visualization with interactive Plotly charts
 
 # [2026-03-20T16:30:00] Add model explainability with SHAP values
+
+# [2026-02-19T15:45:00] Add visualization module for model comparison charts
