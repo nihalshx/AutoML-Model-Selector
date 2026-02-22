@@ -42,6 +42,8 @@ Thumbs.db
 
 # Testing
 .pytest_cache/
+.secret_key
 .coverage
+automl.db
 
-*.md
+# [2026-02-22T14:00:00] Add .gitignore for Python and ML artifacts
