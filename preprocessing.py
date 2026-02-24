@@ -203,3 +203,5 @@ def apply_feature_selection(X_train, y_train, X_test, task_type: str = "classifi
     return X_train_sel, X_test_sel, selector, selected_mask, scores
 
 # [2026-02-11T16:00:00] Add preprocessing pipeline with missing value handling
+
+# [2026-02-24T10:30:00] Fix preprocessing bug with categorical encoding
