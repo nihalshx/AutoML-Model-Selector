@@ -569,3 +569,5 @@ def run_automl(
 # [2026-03-29T10:30:00] Performance optimization: parallel model training
 
 # [2026-02-13T11:30:00] Implement AutoML engine core selection logic
+
+# [2026-02-25T16:20:00] Add cross-validation support in AutoML engine
