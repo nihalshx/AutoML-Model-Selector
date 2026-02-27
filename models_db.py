@@ -130,3 +130,5 @@ def init_db(app):
 # [2026-03-23T10:00:00] Implement model persistence and versioning
 
 # [2026-02-09T09:45:00] Implement database models for experiment tracking
+
+# [2026-02-27T14:30:00] Add experiment history tracking in database
