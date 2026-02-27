@@ -124,3 +124,5 @@ def init_db(app):
         db.create_all()
 
 # [2026-02-09T09:45:00] Implement database models for experiment tracking
+
+# [2026-02-27T14:30:00] Add experiment history tracking in database
