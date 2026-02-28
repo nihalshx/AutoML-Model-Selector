@@ -361,3 +361,5 @@ def compute_and_save_shap(pipe, X_train, output_dirs, run_id, max_samples=200):
         return {"shap_summary": None, "shap_bar": None, "shap_csv": None}
 
 # [2026-02-19T15:45:00] Add visualization module for model comparison charts
+
+# [2026-02-28T09:15:00] Improve visualization with interactive Plotly charts
