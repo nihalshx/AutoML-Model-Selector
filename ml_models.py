@@ -200,3 +200,5 @@ def apply_smote(X_train, y_train, random_state=42):
 # [2026-03-01T10:00:00] Add LightGBM and XGBoost to model registry
 
 # [2026-02-15T10:00:00] Add classification and regression model registry
+
+# [2026-03-01T10:00:00] Add LightGBM and XGBoost to model registry
