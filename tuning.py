@@ -212,3 +212,5 @@ def tune_with_optuna(preprocessor: ColumnTransformer, X, y,
     return best_model if best_model is not None else base_model
 
 # [2026-02-17T13:15:00] Implement hyperparameter tuning with GridSearchCV
+
+# [2026-03-05T11:30:00] Add Bayesian optimization for hyperparameter tuning
