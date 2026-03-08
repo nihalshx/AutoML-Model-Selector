@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AutoML{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0a0a12; --bg2: #0f0f1a; --bg3: #161625; --border: #1e1e35; --text: #d0d4e0; --text2: #8a8ea8; --accent: #00d4ff; --accent2: #00eebb; --danger: #ff5566; --warning: #ffaa33; --success: #44dd88; --card: rgba(255,255,255,0.03); }
+        [data-theme="light"] { --bg: #f5f6fa; --bg2: #ffffff; --bg3: #eef0f5; --border: #d8dce6; --text: #1a1a2e; --text2: #5a5e78; --accent: #0088cc; --accent2: #00aa88; --danger: #dd3344; --warning: #cc8800; --success: #22aa55; --card: rgba(0,0,0,0.02); }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* ── Global heading font ── */
+        h1, h2, h3, h4 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; }
+
+        /* ── Nav ── */
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 28px; height: 56px; background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(20px); }
+        .nav-brand { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 17px; color: var(--text); letter-spacing: -0.5px; text-decoration: none !important; display: flex; align-items: center; gap: 4px; }
+        .nav-brand-accent { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav-links { display: flex; gap: 2px; align-items: center; }
+        .nav-links a { padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .18s; border: 1px solid transparent; }
+        .nav-links a:hover { color: var(--text); background: var(--card); border-color: var(--border); text-decoration: none; }
+        .nav-links a.active { color: var(--accent); background: var(--card); border-color: var(--border); }
+        .theme-toggle { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--text2); font-size: 14px; transition: all .18s; margin-left: 4px; }
+        .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Page title bar ── */
+        .page-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.8px; color: var(--text); }
+        .page-subtitle { font-size: 13px; color: var(--text2); margin-top: 3px; font-weight: 400; }
+
+        /* ── Container ── */
+        .container { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+        .container-wide { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
+
+        /* ── Cards ── */
+        .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; transition: border-color .2s; }
+        .card-header { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+        .badge { font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 700; letter-spacing: 0.3px; font-family: 'JetBrains Mono', monospace; }
+        .badge-success { background: rgba(68,221,136,0.12); color: var(--success); border: 1px solid rgba(68,221,136,0.2); }
+        .badge-warning { background: rgba(255,170,51,0.12); color: var(--warning); border: 1px solid rgba(255,170,51,0.2); }
+        .badge-danger  { background: rgba(255,85,102,0.12); color: var(--danger);  border: 1px solid rgba(255,85,102,0.2); }
+        .badge-info    { background: rgba(0,212,255,0.10);  color: var(--accent);  border: 1px solid rgba(0,212,255,0.18); }
+
+        /* ── Forms ── */
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.8px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+        .form-input, .form-select { width: 100%; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 14px; transition: border-color .18s, box-shadow .18s; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,0.08); }
+        .form-input::placeholder { color: var(--text2); opacity: 0.4; }
+        .form-check { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+        .form-check input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+        .form-check label { font-size: 13px; color: var(--text); cursor: pointer; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
+
+        /* ── Buttons ── */
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 9px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .18s; border: none; letter-spacing: -0.2px; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; }
+        .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); text-decoration: none; }
+        .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+        .btn-danger { background: rgba(255,85,102,0.1); color: var(--danger); border: 1px solid rgba(255,85,102,0.2); }
+        .btn-danger:hover { background: rgba(255,85,102,0.18); text-decoration: none; }
+        .btn-sm { padding: 6px 12px; font-size: 11px; border-radius: 7px; }
+
+        /* ── Tables ── */
+        .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: var(--bg3); font-family: 'JetBrains Mono', monospace; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; color: var(--text2); text-align: left; padding: 11px 16px; }
+        td { padding: 11px 16px; border-top: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+        tr:hover td { background: var(--card); }
+
+        /* ── Flash ── */
+        .flash { padding: 12px 16px; border-radius: 9px; margin-bottom: 14px; font-size: 13px; border: 1px solid; }
+        .flash-info    { background: rgba(0,212,255,0.06);  border-color: rgba(0,212,255,0.18);  color: var(--accent); }
+        .flash-warning { background: rgba(255,170,51,0.06); border-color: rgba(255,170,51,0.18); color: var(--warning); }
+        .flash-error   { background: rgba(255,85,102,0.06); border-color: rgba(255,85,102,0.18); color: var(--danger); }
+
+        /* ── Grid ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+        /* ── Plots ── */
+        .plot-img { width: 100%; border-radius: 10px; background: var(--bg3); }
+
+        /* ── Progress ── */
+        .progress-bar { width: 100%; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width 0.5s ease; }
+
+        /* ── Stat ── */
+        .stat { text-align: center; padding: 16px; }
+        .stat-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
+        .stat-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <nav class="nav">
+        <a href="/landing" class="nav-brand">⚡ Auto<span class="nav-brand-accent">ML</span></a>
+        <div class="nav-links">
+            <a href="/landing" class="{% if request.endpoint == 'landing_page' %}active{% endif %}">Home</a>
+            <a href="/" class="{% if request.endpoint == 'upload_file' %}active{% endif %}">Train</a>
+            <a href="/experiments" class="{% if request.endpoint == 'list_experiments' %}active{% endif %}">Experiments</a>
+            <a href="/compare" class="{% if request.endpoint == 'compare_datasets' %}active{% endif %}">Compare</a>
+            <a href="/visualizer" class="{% if request.endpoint == 'neural_visualizer' %}active{% endif %}">Visualizer</a>
+            <a href="/about" class="{% if request.endpoint == 'about_page' %}active{% endif %}">About</a>
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+        </div>
+    </nav>
+    
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="container" style="padding-bottom:0">
+        {% for msg in messages %}
+        <div class="flash {% if '⚠' in msg or 'warning' in msg|lower %}flash-warning{% elif 'error' in msg|lower %}flash-error{% else %}flash-info{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+    
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved) document.documentElement.setAttribute('data-theme', saved);
+        })();
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
+
+# [2026-03-08T10:30:00] Add Bootstrap-based responsive layout to templates
