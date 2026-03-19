@@ -875,3 +875,5 @@ if __name__ == "__main__":
 # [2026-02-26T11:00:00] Implement dataset upload and validation endpoint
 
 # [2026-03-12T14:00:00] Implement REST API endpoints for model training
+
+# [2026-03-19T10:00:00] Refactor route handlers into Flask blueprints
