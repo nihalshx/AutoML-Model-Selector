@@ -104,3 +104,5 @@ Set via environment variables:
 - `FILE_RETENTION_DAYS` - Auto-cleanup period (default: 30)
 
 # [2026-02-01T09:15:00] Initial project setup: scaffold AutoML-Model-Selector structure
+
+# [2026-04-01T09:00:00] Final cleanup and documentation update for v1.0
