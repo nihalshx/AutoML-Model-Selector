@@ -879,3 +879,5 @@ if __name__ == "__main__":
 # [2026-03-19T10:00:00] Refactor route handlers into Flask blueprints
 
 # [2026-04-02T09:00:00] Add API rate limiting and request throttling
+
+# [2026-04-02T15:00:00] Fix pagination bug in dataset preview endpoint
