@@ -877,3 +877,5 @@ if __name__ == "__main__":
 # [2026-03-12T14:00:00] Implement REST API endpoints for model training
 
 # [2026-03-19T10:00:00] Refactor route handlers into Flask blueprints
+
+# [2026-04-02T09:00:00] Add API rate limiting and request throttling
