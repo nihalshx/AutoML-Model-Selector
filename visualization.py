@@ -371,3 +371,5 @@ def compute_and_save_shap(pipe, X_train, output_dirs, run_id, max_samples=200):
 # [2026-02-28T09:15:00] Improve visualization with interactive Plotly charts
 
 # [2026-03-11T11:45:00] Fix NaN handling in feature importance visualization
+
+# [2026-04-03T13:00:00] Add heatmap visualization for correlation matrix
