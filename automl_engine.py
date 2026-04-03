@@ -575,3 +575,5 @@ def run_automl(
 # [2026-03-13T10:15:00] Add progress tracking for long-running training jobs
 
 # [2026-03-18T11:00:00] Fix memory leak in large dataset processing
+
+# [2026-04-03T09:30:00] Add feature selection using mutual information scores
