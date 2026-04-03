@@ -110,3 +110,5 @@ Set via environment variables:
 # [2026-02-01T09:15:00] Initial project setup: scaffold AutoML-Model-Selector structure
 
 # [2026-04-02T17:00:00] Update README with usage examples and API docs
+
+# [2026-04-03T17:45:00] Final pre-release version bump and changelog update
