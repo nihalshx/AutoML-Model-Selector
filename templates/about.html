@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}About — AutoML Platform{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Shared ── */
+.ab-section { padding: 72px 0; }
+.ab-w { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+.ab-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+.ab-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: clamp(26px, 3.5vw, 44px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; color: var(--text); margin-bottom: 14px; }
+.ab-grad { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.ab-sub { font-size: 16px; color: var(--text2); line-height: 1.8; font-weight: 400; }
+
+/* ── HERO ── */
+.ab-hero { padding: 72px 24px 64px; text-align: center; background: var(--bg2); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+.ab-hero::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; border: 1px solid var(--border); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; opacity: .5; }
+.ab-hero::after  { content: ''; position: absolute; width: 380px; height: 380px; border-radius: 50%; border: 1px solid var(--border); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.ab-hero-inner { position: relative; z-index: 1; max-width: 740px; margin: 0 auto; }
+.ab-hero h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: clamp(34px, 5.5vw, 64px); font-weight: 800; letter-spacing: -2.5px; line-height: 1.05; color: var(--text); margin-bottom: 20px; }
+
+/* ── MISSION ── */
+.ab-mission-grid { display: grid; grid-template-columns: 1fr 1.7fr; gap: 72px; align-items: start; }
+.ab-prose p { font-size: 16px; color: var(--text2); line-height: 1.85; margin-bottom: 18px; font-weight: 300; }
+.ab-prose p:last-child { margin-bottom: 0; }
+.ab-prose strong { color: var(--text); font-weight: 500; }
+
+/* ── STACK ── */
+.ab-stack-bg { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.ab-stack-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-top: 40px; }
+.ab-stack-card { background: var(--bg); padding: 24px 20px; transition: background .2s; }
+.ab-stack-card:hover { background: var(--bg3); }
+.ab-stack-cat { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text2); margin-bottom: 16px; }
+.ab-stack-item { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.ab-stack-item:last-child { margin-bottom: 0; }
+.ab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ab-stack-name { font-size: 13px; color: var(--text); font-weight: 500; }
+.ab-stack-ver  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text2); margin-left: auto; }
+
+/* ── ARCHITECTURE ── */
+.ab-arch-flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 32px; }
+.ab-arch-node { background: var(--bg2); padding: 20px 14px; text-align: center; transition: background .2s; }
+.ab-arch-node:hover { background: var(--bg3); }
+.ab-arch-icon { font-size: 22px; margin-bottom: 8px; }
+.ab-arch-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.ab-arch-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+.ab-tags-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+.ab-tags-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.ab-tags-title { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
+.ab-tags-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.ab-tag { padding: 3px 9px; border-radius: 6px; font-size: 11px; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
+
+/* ── TIMELINE ── */
+.ab-tl-bg { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.ab-tl { max-width: 680px; margin: 40px auto 0; position: relative; padding-left: 28px; }
+.ab-tl::before { content: ''; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 1px; background: linear-gradient(to bottom, var(--accent), var(--accent2), transparent); }
+.ab-tl-item { position: relative; margin-bottom: 32px; }
+.ab-tl-item:last-child { margin-bottom: 0; }
+.ab-tl-dot { position: absolute; left: -23px; top: 5px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid; }
+.ab-tl-dot.core   { background: color-mix(in srgb, var(--accent) 30%, transparent);   border-color: var(--accent); }
+.ab-tl-dot.new    { background: color-mix(in srgb, var(--accent2) 30%, transparent);  border-color: var(--accent2); }
+.ab-tl-dot.visual { background: color-mix(in srgb, var(--warning) 30%, transparent);  border-color: var(--warning); }
+.ab-tl-cat   { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text2); margin-bottom: 3px; }
+.ab-tl-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.ab-tl-desc  { font-size: 13px; color: var(--text2); line-height: 1.65; }
+
+/* ── VALUES ── */
+.ab-vals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
+.ab-val-card { padding: 28px 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); transition: all .25s; }
+.ab-val-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.ab-val-num   { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 40px; font-weight: 800; color: var(--accent); opacity: .35; line-height: 1; margin-bottom: 10px; }
+.ab-val-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.ab-val-desc  { font-size: 13px; color: var(--text2); line-height: 1.65; }
+
+/* ── CTA ── */
+.ab-cta { text-align: center; padding: 72px 24px; border-top: 1px solid var(--border); }
+.ab-cta-inner { max-width: 520px; margin: 0 auto; }
+.ab-cta-btns { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+.ab-btn-p { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; font-size: 14px; font-weight: 700; color: #000; text-decoration: none; transition: all .2s; }
+.ab-btn-p:hover { transform: translateY(-2px); opacity: .9; text-decoration: none; }
+.ab-btn-s { display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 500; color: var(--text); text-decoration: none; background: var(--card); transition: all .2s; }
+.ab-btn-s:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+/* ── REVEAL ── */
+.ab-reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s, transform .6s; }
+.ab-reveal.ab-vis { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 900px) {
+  .ab-mission-grid { grid-template-columns: 1fr; gap: 32px; }
+  .ab-stack-grid { grid-template-columns: 1fr 1fr; }
+  .ab-arch-flow { grid-template-columns: 1fr; }
+  .ab-tags-grid { grid-template-columns: 1fr; }
+  .ab-vals-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<div class="ab-hero">
+  <div class="ab-hero-inner">
+    <div class="ab-label" style="display:inline-block;margin-bottom:16px">About the Project</div>
+    <h1>Machine learning should<br>be <span class="ab-grad">accessible.</span></h1>
+    <p class="ab-sub" style="max-width:560px;margin:0 auto">AutoML Platform was built on one belief — the gap between a raw dataset and a production-ready model should be measured in minutes, not weeks of engineering.</p>
+  </div>
+</div>
+
+<!-- MISSION -->
+<div class="ab-section ab-reveal" id="mission">
+  <div class="ab-w">
+    <div class="ab-mission-grid">
+      <div>
+        <div class="ab-label">Mission</div>
+        <h2 class="ab-title">Why we built this.</h2>
+      </div>
+      <div class="ab-prose">
+        <p>Most ML tools force a choice: use a <strong>black-box AutoML service</strong> and lose all visibility, or <strong>write everything from scratch</strong> and spend a week on boilerplate before touching your data.</p>
+        <p>AutoML Platform sits between those extremes. It's fully <strong>open and transparent</strong> — every model, metric, and hyperparameter is visible — but it handles all repetitive work automatically. Preprocessing, cross-validation, hyperparameter search, visualization, and PDF reports are all built in.</p>
+        <p>We also believe <strong>deployment is part of the ML workflow</strong>, not an afterthought. Every trained model comes with a live REST API, drift detection, and ONNX export for non-Python runtimes — all out of the box.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TECH STACK -->
+<div class="ab-stack-bg ab-section" id="stack">
+  <div class="ab-w">
+    <div style="text-align:center" class="ab-reveal">
+      <div class="ab-label">Technology</div>
+      <h2 class="ab-title">Built on solid foundations.</h2>
+    </div>
+    <div class="ab-stack-grid ab-reveal">
+      <div class="ab-stack-card">
+        <div class="ab-stack-cat">Backend</div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent)"></div><span class="ab-stack-name">Flask</span><span class="ab-stack-ver">3.0</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent)"></div><span class="ab-stack-name">SQLAlchemy</span><span class="ab-stack-ver">3.1</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent)"></div><span class="ab-stack-name">Flask-Mail</span><span class="ab-stack-ver">0.9</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent)"></div><span class="ab-stack-name">Flask-Caching</span><span class="ab-stack-ver">2.1</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent)"></div><span class="ab-stack-name">Werkzeug</span><span class="ab-stack-ver">3.0</span></div>
+      </div>
+      <div class="ab-stack-card">
+        <div class="ab-stack-cat">Machine Learning</div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent2)"></div><span class="ab-stack-name">scikit-learn</span><span class="ab-stack-ver">1.3</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent2)"></div><span class="ab-stack-name">XGBoost</span><span class="ab-stack-ver">2.0</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent2)"></div><span class="ab-stack-name">LightGBM</span><span class="ab-stack-ver">4.1</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent2)"></div><span class="ab-stack-name">CatBoost</span><span class="ab-stack-ver">1.2</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--accent2)"></div><span class="ab-stack-name">imbalanced-learn</span><span class="ab-stack-ver">0.12</span></div>
+      </div>
+      <div class="ab-stack-card">
+        <div class="ab-stack-cat">Optimization & Export</div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--warning)"></div><span class="ab-stack-name">Optuna</span><span class="ab-stack-ver">3.5</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--warning)"></div><span class="ab-stack-name">SHAP</span><span class="ab-stack-ver">0.44</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--warning)"></div><span class="ab-stack-name">skl2onnx</span><span class="ab-stack-ver">1.16</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--warning)"></div><span class="ab-stack-name">onnxruntime</span><span class="ab-stack-ver">1.17</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--warning)"></div><span class="ab-stack-name">joblib</span><span class="ab-stack-ver">1.3</span></div>
+      </div>
+      <div class="ab-stack-card">
+        <div class="ab-stack-cat">Visualization & Data</div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--success)"></div><span class="ab-stack-name">Plotly.js</span><span class="ab-stack-ver">2.30</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--success)"></div><span class="ab-stack-name">Chart.js</span><span class="ab-stack-ver">4.4</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--success)"></div><span class="ab-stack-name">matplotlib</span><span class="ab-stack-ver">3.8</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--success)"></div><span class="ab-stack-name">seaborn</span><span class="ab-stack-ver">0.13</span></div>
+        <div class="ab-stack-item"><div class="ab-dot" style="background:var(--success)"></div><span class="ab-stack-name">pandas + numpy</span><span class="ab-stack-ver">2.1</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="ab-section ab-reveal">
+  <div class="ab-w">
+    <div class="ab-label">Architecture</div>
+    <h2 class="ab-title">How data flows through the system.</h2>
+    <div class="ab-arch-flow">
+      <div class="ab-arch-node"><div class="ab-arch-icon">📁</div><div class="ab-arch-name">Upload</div><div class="ab-arch-desc">CSV ingestion, column mapping, preview, heatmap</div></div>
+      <div class="ab-arch-node"><div class="ab-arch-icon">⚙️</div><div class="ab-arch-name">Preprocessing</div><div class="ab-arch-desc">Imputation, encoding, scaling, SMOTE, selection</div></div>
+      <div class="ab-arch-node"><div class="ab-arch-icon">🤖</div><div class="ab-arch-name">Training</div><div class="ab-arch-desc">10+ models, Optuna, cross-validation, ensemble</div></div>
+      <div class="ab-arch-node"><div class="ab-arch-icon">📊</div><div class="ab-arch-name">Evaluation</div><div class="ab-arch-desc">Metrics, SHAP, confusion matrix, feature importance</div></div>
+      <div class="ab-arch-node"><div class="ab-arch-icon">🚀</div><div class="ab-arch-name">Deploy</div><div class="ab-arch-desc">REST API, drift detection, Joblib / Pickle / ONNX</div></div>
+    </div>
+    <div class="ab-tags-grid">
+      <div class="ab-tags-card">
+        <div class="ab-tags-title">Classification Models</div>
+        <div class="ab-tags-wrap">
+          <span class="ab-tag">LogisticRegression</span><span class="ab-tag">RandomForest</span>
+          <span class="ab-tag">GradientBoosting</span><span class="ab-tag">XGBoost</span>
+          <span class="ab-tag">LightGBM</span><span class="ab-tag">CatBoost</span>
+          <span class="ab-tag">SVM</span><span class="ab-tag">KNN</span><span class="ab-tag">NaiveBayes</span>
+        </div>
+      </div>
+      <div class="ab-tags-card">
+        <div class="ab-tags-title">Regression Models</div>
+        <div class="ab-tags-wrap">
+          <span class="ab-tag">LinearRegression</span><span class="ab-tag">Ridge</span>
+          <span class="ab-tag">Lasso</span><span class="ab-tag">ElasticNet</span>
+          <span class="ab-tag">RandomForest</span><span class="ab-tag">XGBoost</span>
+          <span class="ab-tag">LightGBM</span><span class="ab-tag">SVR</span>
+        </div>
+      </div>
+      <div class="ab-tags-card">
+        <div class="ab-tags-title">Pipeline Options</div>
+        <div class="ab-tags-wrap">
+          <span class="ab-tag">SMOTE</span><span class="ab-tag">Class Weights</span>
+          <span class="ab-tag">SelectKBest</span><span class="ab-tag">Optuna</span>
+          <span class="ab-tag">Stacking Ensemble</span><span class="ab-tag">K-Fold CV</span>
+          <span class="ab-tag">SHAP</span><span class="ab-tag">Feature Engineering</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<div class="ab-tl-bg ab-section" id="timeline">
+  <div class="ab-w">
+    <div style="text-align:center" class="ab-reveal">
+      <div class="ab-label">Feature Timeline</div>
+      <h2 class="ab-title">What was built, and when.</h2>
+    </div>
+    <div class="ab-tl">
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot core"></div><div class="ab-tl-cat">Core Pipeline</div><div class="ab-tl-title">AutoML Engine</div><div class="ab-tl-desc">Multi-model training loop, sklearn pipelines, preprocessing, cross-validation, PDF reports, SSE progress streaming.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot core"></div><div class="ab-tl-cat">Core Pipeline</div><div class="ab-tl-title">Advanced ML Options</div><div class="ab-tl-desc">SMOTE, class weights, SelectKBest, Optuna hyperparameter tuning, stacking ensemble with sklearn clone().</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot core"></div><div class="ab-tl-cat">Core Pipeline</div><div class="ab-tl-title">Explainability</div><div class="ab-tl-desc">SHAP plots, learning curves, radar chart comparison, ROC curves, actual-vs-predicted, and residual plots.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot new"></div><div class="ab-tl-cat">Feature Drop — Export & Reliability</div><div class="ab-tl-title">Multi-format Model Export</div><div class="ab-tl-desc">Automatic Joblib, Pickle, and ONNX export on every training run via skl2onnx with graceful fallback.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot new"></div><div class="ab-tl-cat">Feature Drop — Export & Reliability</div><div class="ab-tl-title">Data Drift Detection</div><div class="ab-tl-desc">Training distribution stats saved per feature. Every prediction request compared against them automatically.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot new"></div><div class="ab-tl-cat">Feature Drop — Insights</div><div class="ab-tl-title">Auto Feature Importance + Dataset Comparison</div><div class="ab-tl-desc">Lightweight feature ranking via feature_importances_ / coef_. Side-by-side dataset comparison with shared config.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot visual"></div><div class="ab-tl-cat">Feature Drop — Visualization</div><div class="ab-tl-title">Interactive Confusion Matrix + Heatmap</div><div class="ab-tl-desc">Plotly confusion matrix replacing static PNG. Correlation heatmap at upload time before training starts.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot visual"></div><div class="ab-tl-cat">Feature Drop — Visualization</div><div class="ab-tl-title">Live Training Graph</div><div class="ab-tl-desc">Chart.js bar chart driven by SSE stream. Fixed canvas-expansion bug with CSS fixed-height wrapper.</div></div>
+      <div class="ab-tl-item ab-reveal"><div class="ab-tl-dot visual"></div><div class="ab-tl-cat">Feature Drop — Workflow</div><div class="ab-tl-title">Tagging, Notes, Timeline, Re-run, Email</div><div class="ab-tl-desc">Tags, notes, timeline view with pulsing dots, one-click re-run pre-fill, Flask-Mail completion notifications.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- VALUES -->
+<div class="ab-section ab-reveal">
+  <div class="ab-w">
+    <div style="text-align:center">
+      <div class="ab-label">Principles</div>
+      <h2 class="ab-title">What guides every decision.</h2>
+    </div>
+    <div class="ab-vals-grid">
+      <div class="ab-val-card"><div class="ab-val-num">01</div><div class="ab-val-title">Transparency over magic</div><div class="ab-val-desc">Every model metric, hyperparameter, and preprocessing step is shown to you. AutoML handles the work but never hides what it's doing.</div></div>
+      <div class="ab-val-card"><div class="ab-val-num">02</div><div class="ab-val-title">Deploy-first thinking</div><div class="ab-val-desc">Training is only half the job. Drift detection, multi-format export, and a production REST API are built in from day one.</div></div>
+      <div class="ab-val-card"><div class="ab-val-num">03</div><div class="ab-val-title">Zero setup required</div><div class="ab-val-desc">Upload a CSV. Encoding, scaling, imputation, column type detection — all handled automatically with sane, overridable defaults.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="ab-cta ab-reveal">
+  <div class="ab-cta-inner">
+    <div class="ab-label">Get Started</div>
+    <h2 class="ab-title" style="font-size:clamp(26px,4vw,46px)">Start training<br><span class="ab-grad">your first model.</span></h2>
+    <p class="ab-sub">No account required. No API key. Just a CSV and a question to answer.</p>
+    <div class="ab-cta-btns">
+      <a href="/" class="ab-btn-p">🚀 Upload a Dataset</a>
+      <a href="/experiments" class="ab-btn-s">Browse Experiments</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('ab-vis'); ro.unobserve(e.target); } });
+}, { threshold: 0.08 });
+document.querySelectorAll('.ab-reveal').forEach((el, i) => {
+  const siblings = el.parentElement.querySelectorAll('.ab-reveal');
+  const idx = Array.from(siblings).indexOf(el);
+  el.style.transitionDelay = Math.min(idx * 0.09, 0.4) + 's';
+  ro.observe(el);
+});
+</script>
+{% endblock %}

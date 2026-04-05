@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Dataset Comparison - AutoML{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+.drop-zone{border:2px dashed var(--border);border-radius:12px;text-align:center;padding:32px;cursor:pointer;transition:all .3s}
+.drop-zone.active{border-color:var(--accent);background:rgba(0,212,255,0.04)}
+.metric-diff{font-size:12px;font-weight:600;margin-left:6px}
+.metric-diff.pos{color:var(--success)}.metric-diff.neg{color:var(--danger)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-wide">
+  <div style="margin-bottom:28px">
+    <h1 class="page-title" style="margin-bottom:6px">⚖️ Dataset Comparison</h1>
+    <p style="color:var(--text2);font-size:13px">Train on two different datasets with the same config and compare model performance side-by-side. Useful for feature engineering experiments.</p>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:24px">
+    <!-- Base Experiment selector -->
+    <div class="card">
+      <div class="card-header">📋 Step 1: Pick a Base Experiment</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">The new run will inherit the same ML config (CV, Optuna, SMOTE, etc.) as the base experiment.</p>
+      {% if experiments %}
+      <div class="form-group">
+        <label class="form-label">Base Experiment</label>
+        <select id="baseExpSelect" class="form-select" onchange="onBaseChange()">
+          <option value="">— Run fresh with default config —</option>
+          {% for exp in experiments %}
+          <option value="{{ exp.id }}" data-target="{{ exp.target_column }}" data-task="{{ exp.task_type }}" data-name="{{ exp.best_model_name }}" data-dataset="{{ exp.dataset_filename[:35] }}">
+            [{{ exp.task_type|upper }}] {{ exp.best_model_name }} — {{ exp.dataset_filename[:30] }} ({{ exp.created_at[:10] if exp.created_at else '' }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="baseInfo" style="display:none;padding:10px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.8">
+        <div>Target: <strong id="baseTarget">—</strong></div>
+        <div>Task: <strong id="baseTask">—</strong></div>
+        <div>Best model: <strong id="baseBest">—</strong></div>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:24px;color:var(--text2);font-size:13px">
+        No completed experiments yet. <a href="/">Run your first experiment</a> to compare against it.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- New dataset upload -->
+    <div class="card">
+      <div class="card-header">📁 Step 2: Upload New Dataset</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Upload a different CSV (e.g. with engineered features, cleaned data, or a different subset).</p>
+      <div class="drop-zone" id="dropZone2" onclick="document.getElementById('file2').click()">
+        <div id="drop2Content">
+          <div style="font-size:28px;margin-bottom:8px;opacity:0.4">📂</div>
+          <div style="font-weight:600">Drop comparison CSV here</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px">or click to browse</div>
+        </div>
+        <div id="file2Info" style="display:none">
+          <div style="font-size:24px;margin-bottom:6px">📊</div>
+          <div id="file2Name" style="font-weight:600;color:var(--accent)"></div>
+          <div id="file2Size" style="font-size:12px;color:var(--text2);margin-top:2px"></div>
+        </div>
+        <input type="file" id="file2" accept=".csv" style="display:none">
+      </div>
+
+      <!-- Manual target (if no base experiment) -->
+      <div id="manualTarget" style="display:none;margin-top:12px">
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label">Target Column</label>
+          <select id="targetSel2" class="form-select"><option value="">Upload a file first...</option></select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Task Type</label>
+          <select id="taskSel2" class="form-select">
+            <option value="auto">Auto-Detect</option>
+            <option value="classification">Classification</option>
+            <option value="regression">Regression</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:32px">
+    <button class="btn btn-primary" style="padding:12px 40px;font-size:15px" id="startCompareBtn" disabled onclick="startComparison()">
+      🚀 Start Comparison Run
+    </button>
+    <p style="font-size:11px;color:var(--text2);margin-top:8px">Training starts immediately in the background. You'll be redirected to the training progress page.</p>
+  </div>
+
+  <!-- Side-by-side results (existing completed experiments) -->
+  {% if experiments|length >= 2 %}
+  <div class="card">
+    <div class="card-header">📊 Compare Existing Results</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Select two completed experiments to compare side-by-side.</p>
+    <div class="form-row" style="margin-bottom:16px">
+      <div class="form-group">
+        <label class="form-label">Experiment A</label>
+        <select id="expA" class="form-select" onchange="loadComparison()">
+          <option value="">Select...</option>
+          {% for exp in experiments %}<option value="{{ exp.id }}">{{ exp.best_model_name }} — {{ exp.dataset_filename[:25] }} ({{ exp.created_at[:10] if exp.created_at else '' }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Experiment B</label>
+        <select id="expB" class="form-select" onchange="loadComparison()">
+          <option value="">Select...</option>
+          {% for exp in experiments %}<option value="{{ exp.id }}">{{ exp.best_model_name }} — {{ exp.dataset_filename[:25] }} ({{ exp.created_at[:10] if exp.created_at else '' }})</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div id="comparisonResult" style="display:none">
+      <div class="grid-2">
+        <div id="sideA" class="card" style="background:var(--bg3)"></div>
+        <div id="sideB" class="card" style="background:var(--bg3)"></div>
+      </div>
+      <div id="compChart" style="margin-top:16px;min-height:300px"></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const dz2 = document.getElementById('dropZone2');
+const f2  = document.getElementById('file2');
+const startBtn = document.getElementById('startCompareBtn');
+let file2Ready = false;
+
+dz2.addEventListener('dragover', e=>{e.preventDefault();dz2.classList.add('active')});
+dz2.addEventListener('dragleave', ()=>dz2.classList.remove('active'));
+dz2.addEventListener('drop', e=>{e.preventDefault();dz2.classList.remove('active');if(e.dataTransfer.files[0]){f2.files=e.dataTransfer.files;handleFile2();}});
+f2.addEventListener('change', handleFile2);
+
+function handleFile2() {
+  const file=f2.files[0]; if(!file) return;
+  document.getElementById('drop2Content').style.display='none';
+  document.getElementById('file2Info').style.display='block';
+  document.getElementById('file2Name').textContent=file.name;
+  document.getElementById('file2Size').textContent=(file.size/1024/1024).toFixed(2)+' MB';
+  file2Ready=true;
+
+  // Only need column list if no base experiment
+  if(!document.getElementById('baseExpSelect').value) {
+    const fd=new FormData(); fd.append('dataset',file);
+    fetch('/api/preview',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+      if(d.columns){
+        const sel=document.getElementById('targetSel2');
+        sel.innerHTML='';
+        d.columns.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;if(c===d.suggested_target)o.selected=true;sel.appendChild(o);});
+        document.getElementById('manualTarget').style.display='block';
+        if(d.suggested_task) document.getElementById('taskSel2').value=d.suggested_task;
+      }
+    }).catch(()=>{});
+  }
+  updateStartBtn();
+}
+
+function onBaseChange() {
+  const sel=document.getElementById('baseExpSelect');
+  const opt=sel.options[sel.selectedIndex];
+  const hasBase=!!sel.value;
+  document.getElementById('baseInfo').style.display=hasBase?'block':'none';
+  document.getElementById('manualTarget').style.display=hasBase?'none':'block';
+  if(hasBase){
+    document.getElementById('baseTarget').textContent=opt.dataset.target||'—';
+    document.getElementById('baseTask').textContent=opt.dataset.task||'—';
+    document.getElementById('baseBest').textContent=opt.dataset.name||'—';
+  }
+  updateStartBtn();
+}
+
+function updateStartBtn() {
+  startBtn.disabled = !file2Ready;
+}
+
+function startComparison() {
+  if(!file2Ready) return;
+  startBtn.disabled=true;
+  startBtn.textContent='⏳ Starting...';
+  const fd=new FormData();
+  fd.append('dataset', f2.files[0]);
+  const baseId=document.getElementById('baseExpSelect').value;
+  if(baseId) fd.append('base_exp_id', baseId);
+  else {
+    fd.append('target_col', document.getElementById('targetSel2').value);
+    fd.append('task_type',  document.getElementById('taskSel2').value);
+  }
+  fetch('/api/compare',{method:'POST',body:fd})
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.error){alert('Error: '+data.error);startBtn.disabled=false;startBtn.textContent='🚀 Start Comparison Run';return;}
+    window.location.href=data.redirect;
+  })
+  .catch(e=>{alert('Error: '+e);startBtn.disabled=false;startBtn.textContent='🚀 Start Comparison Run';});
+}
+
+// ── Side-by-side comparison of existing experiments ──
+const isDark=document.documentElement.getAttribute('data-theme')!=='light';
+const tc=isDark?'#d0d4e0':'#1a1a2e', bg=isDark?'#0f0f1a':'#ffffff';
+
+function loadComparison() {
+  const idA=document.getElementById('expA').value;
+  const idB=document.getElementById('expB').value;
+  if(!idA||!idB||idA===idB) return;
+  Promise.all([
+    fetch('/api/experiment/'+idA+'/results').then(r=>r.json()),
+    fetch('/api/experiment/'+idB+'/results').then(r=>r.json())
+  ]).then(([a,b])=>{
+    document.getElementById('comparisonResult').style.display='block';
+    renderSide('sideA', a, 'A');
+    renderSide('sideB', b, 'B');
+    renderBarChart(a, b);
+  }).catch(()=>{});
+}
+
+function renderSide(elId, data, label) {
+  const el=document.getElementById(elId);
+  const metric=data.task_type==='regression'?'r2':'f1';
+  const metricLabel=data.task_type==='regression'?'R²':'F1';
+  const best=data.completed_models&&data.completed_models.length?data.completed_models[0]:null;
+  el.innerHTML=`
+    <div class="card-header" style="color:var(--accent)">Experiment ${label}</div>
+    <div style="font-size:13px;line-height:2">
+      <div><span style="color:var(--text2)">Best Model:</span> <strong>${data.best_model||'—'}</strong></div>
+      <div><span style="color:var(--text2)">Task:</span> ${(data.task_type||'').toUpperCase()}</div>
+      <div><span style="color:var(--text2)">Dataset:</span> ${data.dataset_info?.filename?.slice(0,30)||'—'}</div>
+      <div><span style="color:var(--text2)">Rows:</span> ${data.dataset_info?.rows||'—'} × ${data.dataset_info?.cols||'—'} cols</div>
+      ${best?`<div><span style="color:var(--text2)">${metricLabel}:</span> <span style="color:var(--accent);font-weight:700">${best.primary_metric.toFixed(4)}</span></div>`:''}
+      <div><span style="color:var(--text2)">Train Time:</span> ${data.training_time?data.training_time.toFixed(1)+'s':'—'}</div>
+    </div>`;
+}
+
+function renderBarChart(a, b) {
+  const modelsA=(a.completed_models||[]).slice(0,8);
+  const modelsB=(b.completed_models||[]).slice(0,8);
+  const allNames=[...new Set([...modelsA.map(m=>m.name),...modelsB.map(m=>m.name)])];
+  const getScore=(models,name)=>{const m=models.find(x=>x.name===name);return m?m.primary_metric:null;};
+  const scoresA=allNames.map(n=>getScore(modelsA,n));
+  const scoresB=allNames.map(n=>getScore(modelsB,n));
+  Plotly.newPlot('compChart',[
+    {name:'Experiment A', x:allNames, y:scoresA, type:'bar', marker:{color:'rgba(0,212,255,0.7)',line:{color:'#00d4ff',width:1}}, text:scoresA.map(v=>v!=null?v.toFixed(4):'—'), textposition:'outside'},
+    {name:'Experiment B', x:allNames, y:scoresB, type:'bar', marker:{color:'rgba(0,238,187,0.7)',line:{color:'#00eebb',width:1}}, text:scoresB.map(v=>v!=null?v.toFixed(4):'—'), textposition:'outside'}
+  ],{
+    barmode:'group', paper_bgcolor:bg, plot_bgcolor:bg,
+    font:{color:tc,size:11}, margin:{t:20,b:80,l:40,r:20},
+    xaxis:{tickangle:-30,gridcolor:'rgba(255,255,255,0.05)'},
+    yaxis:{gridcolor:'rgba(255,255,255,0.05)',title:{text:'Primary Metric',font:{color:tc}}},
+    legend:{font:{color:tc}}, height:320
+  },{displayModeBar:false,responsive:true});
+}
+</script>
+{% endblock %}

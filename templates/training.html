@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Training in Progress{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.model-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.18);color:var(--accent);margin:3px 3px 3px 0}
+/* FIX: chart wrapper must have fixed pixel height — Chart.js reads this, not the canvas height attr */
+.chart-fixed-wrap{position:relative;width:100%;height:240px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="max-width:860px;padding-top:40px">
+
+  <!-- Status Card -->
+  <div class="card" style="text-align:center;padding:40px 32px">
+    <div id="animIcon" style="font-size:52px;margin-bottom:16px;animation:pulse 1.5s infinite">🧠</div>
+    <h2 style="margin-bottom:8px" id="statusTitle">Training in Progress...</h2>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:24px" id="statusMsg">Preparing data...</p>
+    <div class="progress-bar" style="margin-bottom:10px;height:12px;border-radius:6px">
+      <div class="progress-fill" id="progressFill" style="width:0%;border-radius:6px"></div>
+    </div>
+    <div style="font-size:13px;color:var(--text2);font-weight:600" id="progressPct">0%</div>
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
+      <div class="grid-3" style="gap:12px">
+        <div class="stat"><div class="stat-label">Task</div><div style="font-size:14px;font-weight:600;margin-top:4px;color:var(--accent)">{{ experiment.task_type|upper }}</div></div>
+        <div class="stat"><div class="stat-label">Dataset</div><div style="font-size:14px;font-weight:600;margin-top:4px">{{ experiment.num_rows }} rows</div></div>
+        <div class="stat"><div class="stat-label">Run ID</div><div style="font-size:11px;font-weight:600;margin-top:4px;font-family:monospace;color:var(--text2)">{{ run_id[:8] }}...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Metric Graph — hidden until first model completes -->
+  <div class="card" id="liveChartCard" style="display:none">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📈 Live Model Scores</span>
+      <span class="badge badge-info" id="modelsCompletedBadge">0 models</span>
+    </div>
+    <!-- FIX: fixed-height wrapper prevents Chart.js from expanding the card -->
+    <div class="chart-fixed-wrap">
+      <canvas id="liveChart"></canvas>
+    </div>
+    <div id="modelBadges" style="margin-top:12px;line-height:1.8"></div>
+  </div>
+
+  <!-- Error Card -->
+  <div id="errorCard" class="card" style="display:none;border-color:rgba(255,85,102,0.3)">
+    <div style="color:var(--danger);font-weight:600;margin-bottom:8px">❌ Training Failed</div>
+    <p id="errorMsg" style="font-size:13px;color:var(--text2)"></p>
+    <a href="/" class="btn btn-secondary" style="margin-top:12px">← Try Again</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const runId      = "{{ run_id }}";
+const taskType   = "{{ experiment.task_type }}";
+const metricKey  = taskType === 'regression' ? 'r2' : 'f1';
+const metricLabel= taskType === 'regression' ? 'R²' : 'F1 Score';
+
+const progressFill = document.getElementById('progressFill');
+const progressPct  = document.getElementById('progressPct');
+const statusMsg    = document.getElementById('statusMsg');
+const statusTitle  = document.getElementById('statusTitle');
+
+// ── Chart.js setup ──
+// canvas fills its parent .chart-fixed-wrap (height:240px via CSS)
+// responsive:true + maintainAspectRatio:false makes it fill that fixed wrapper exactly
+const isDark    = document.documentElement.getAttribute('data-theme') !== 'light';
+const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+const textColor = isDark ? '#8a8ea8' : '#5a5e78';
+const bgColor   = isDark ? '#0f0f1a' : '#ffffff';
+
+const liveChart = new Chart(document.getElementById('liveChart'), {
+  type: 'bar',
+  data: { labels: [], datasets: [{
+    label: metricLabel,
+    data: [],
+    backgroundColor: [],
+    borderColor: [],
+    borderWidth: 2,
+    borderRadius: 5,
+  }]},
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,   // fills the wrapper div height exactly
+    animation: { duration: 350 },
+    layout: { padding: { top: 20 } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: isDark ? '#161625' : '#fff',
+        titleColor: textColor,
+        bodyColor: isDark ? '#d0d4e0' : '#1a1a2e',
+        borderColor: gridColor,
+        borderWidth: 1,
+        callbacks: { label: c => ` ${metricLabel}: ${c.parsed.y.toFixed(4)}` }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: gridColor },
+        ticks: { color: textColor, font: { size: 10 }, maxRotation: 35 }
+      },
+      y: {
+        grid: { color: gridColor },
+        ticks: { color: textColor, font: { size: 10 } },
+        suggestedMin: 0,
+        suggestedMax: 1,
+        title: { display: true, text: metricLabel, color: textColor, font: { size: 10 } }
+      }
+    }
+  }
+});
+
+const PALETTE = ['#00d4ff','#00eebb','#ff9933','#aa88ff','#ff5566','#44dd88','#ffcc00','#ff66aa','#66aaff','#aaffcc'];
+let knownModels = new Set();   // FIX: track by name, prevents duplicate adds
+let bestScore   = -Infinity;
+
+function addModel(name, score) {
+  if (knownModels.has(name)) return;   // FIX: idempotent guard
+  knownModels.add(name);
+
+  const isBest = score > bestScore;
+  if (isBest) bestScore = score;
+
+  const i     = knownModels.size - 1;
+  const color = PALETTE[i % PALETTE.length];
+
+  liveChart.data.labels.push(name);
+  liveChart.data.datasets[0].data.push(Math.max(0, score));
+  liveChart.data.datasets[0].backgroundColor.push(isBest ? 'rgba(0,212,255,0.28)' : color + '28');
+  liveChart.data.datasets[0].borderColor.push(isBest ? '#00d4ff' : color);
+  liveChart.update('none');   // FIX: 'none' mode skips animation resize, stops height bleed
+
+  document.getElementById('liveChartCard').style.display = 'block';
+  document.getElementById('modelsCompletedBadge').textContent = knownModels.size + ' model' + (knownModels.size > 1 ? 's' : '');
+
+  const badge = document.createElement('span');
+  badge.className = 'model-badge';
+  if (isBest) { badge.style.borderColor='rgba(0,212,255,0.5)'; badge.style.color='var(--accent)'; }
+  else        { badge.style.borderColor='rgba(255,255,255,0.08)'; badge.style.color='var(--text2)'; }
+  badge.innerHTML = (isBest ? '👑 ' : '') + name + ' <strong style="margin-left:4px">' + score.toFixed(4) + '</strong>';
+  document.getElementById('modelBadges').appendChild(badge);
+}
+
+// ── SSE stream ──
+let lastCompletedCount = 0;   // FIX: detect new models by count diff, not wrong stage name
+const evtSource = new EventSource('/api/progress/' + runId);
+
+evtSource.onmessage = function(e) {
+  const data = JSON.parse(e.data);
+
+  if (data.status === 'completed') {
+    evtSource.close();
+    progressFill.style.width = '100%';
+    progressPct.textContent  = '100%';
+    statusTitle.textContent  = '✅ Training Complete!';
+    statusMsg.textContent    = 'Redirecting to results...';
+    document.getElementById('animIcon').textContent  = '✅';
+    document.getElementById('animIcon').style.animation = 'none';
+    // Add any remaining models to chart before redirect
+    if (data.completed_models) {
+      data.completed_models.forEach(m => addModel(m.name, m.primary_metric || 0));
+    }
+    setTimeout(() => window.location.href = '/results/' + runId, 1800);
+    return;
+  }
+
+  if (data.status === 'failed' || data.percent < 0) {
+    evtSource.close();
+    statusTitle.textContent = 'Training Failed';
+    document.getElementById('animIcon').textContent  = '❌';
+    document.getElementById('animIcon').style.animation = 'none';
+    document.getElementById('errorCard').style.display  = 'block';
+    document.getElementById('errorMsg').textContent = data.message || 'Unknown error';
+    return;
+  }
+
+  const pct = Math.max(0, Math.min(100, data.percent || 0));
+  progressFill.style.width = pct + '%';
+  progressPct.textContent  = pct + '%';
+  statusMsg.textContent    = data.message || 'Working...';
+
+  // FIX: engine sends stage="training" with completed_models[] growing each tick.
+  // We check if array length grew since last tick — only then process new entries.
+  if (data.completed_models && Array.isArray(data.completed_models)) {
+    if (data.completed_models.length > lastCompletedCount) {
+      // Only iterate newly added entries (slice from last known index)
+      data.completed_models.slice(lastCompletedCount).forEach(m => {
+        addModel(m.name, m.primary_metric || 0);
+      });
+      lastCompletedCount = data.completed_models.length;
+    }
+  }
+};
+
+evtSource.onerror = function() {
+  setTimeout(() => {
+    fetch('/api/progress/' + runId).catch(() => {});
+    fetch('/results/' + runId, { method: 'HEAD' })
+      .then(r => { if (r.ok) window.location.href = '/results/' + runId; })
+      .catch(() => {});
+  }, 3000);
+};
+</script>
+{% endblock %}

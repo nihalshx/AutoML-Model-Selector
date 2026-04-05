@@ -1,0 +1,1379 @@
+{% extends "base.html" %}
+{% block title %}3D Training Visualizer{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* ── Layout ── */
+.viz-wrap{display:flex;height:calc(100vh - 56px);overflow:hidden}
+.viz-side{width:320px;min-width:320px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:0;display:flex;flex-direction:column}
+.viz-main{flex:1;position:relative;background:#050510}
+.viz-main canvas{display:block;cursor:grab}
+.viz-main canvas.orbiting{cursor:grabbing}
+
+/* ── Sidebar panels ── */
+.vp{padding:12px 14px;border-bottom:1px solid var(--border)}
+.vl{font-size:9px;color:var(--text2);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px}
+
+/* ── Experiment cards ── */
+.exp-card{padding:9px 11px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;transition:all .15s;font-size:11px}
+.exp-card:hover,.exp-card.sel{border-color:var(--accent);background:rgba(0,212,255,0.05)}
+.exp-card.cmp-sel{border-color:#cc44ff !important;background:rgba(204,68,255,0.07) !important}
+.exp-card .ec-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;flex-shrink:0}
+
+/* ── Leaderboard ── */
+.lb{list-style:none;padding:0;margin:0}
+.lb li{display:flex;align-items:center;gap:7px;padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer;position:relative;overflow:hidden;transition:background .25s}
+.lb li:hover{background:rgba(255,255,255,0.025)}
+.lb li.best{background:rgba(0,212,255,0.06);border-left:3px solid var(--accent)}
+.lb-rank{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.lb-bar{height:3px;border-radius:2px;transition:width .7s cubic-bezier(.4,0,.2,1)}
+/* FIX #1 – delta uses animation not transition so position:absolute+pointer-events:none is fine */
+.lb-delta{position:absolute;right:54px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;font-family:monospace;opacity:0;pointer-events:none}
+
+/* ── HUD ── */
+.ohud{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:10}
+.hchip{background:rgba(5,5,16,0.92);backdrop-filter:blur(16px);padding:7px 13px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);pointer-events:auto}
+
+/* FIX #4 – stage pills: use flex-wrap so 7 pills fit */
+.stage-flow-wrap{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px}
+.stage-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:9px;font-weight:600;white-space:nowrap}
+
+/* ── Pipeline spine (canvas overlay) ── */
+.pipeline-spine{position:absolute;top:56px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1px;pointer-events:none;z-index:5;opacity:0;transition:opacity .5s}
+.pipeline-spine.show{opacity:1}
+.ps-stage{padding:3px 7px;border-radius:5px;font-size:8px;font-weight:700;letter-spacing:.7px;border:1px solid;transition:all .4s}
+.ps-stage.done   {border-color:rgba(0,212,255,0.35); background:rgba(0,212,255,0.1);  color:#00d4ff}
+.ps-stage.active {border-color:rgba(255,136,51,0.55);background:rgba(255,136,51,0.18);color:#ff8833;animation:stagePulse 1s ease infinite}
+.ps-stage.pending{border-color:rgba(255,255,255,0.07);background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.22)}
+.ps-arrow{color:rgba(255,255,255,0.14);font-size:9px}
+
+/* ── Inspect panel ── */
+.inspect-panel{position:absolute;bottom:60px;right:14px;width:250px;background:rgba(5,5,16,0.97);backdrop-filter:blur(20px);border:1px solid rgba(0,212,255,0.2);border-radius:12px;padding:15px;pointer-events:auto;z-index:20;display:none;box-shadow:0 8px 32px rgba(0,0,0,0.6)}
+
+/* ── Hover tooltip ── */
+.hover-tip{position:absolute;background:rgba(5,5,16,0.96);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;font-size:10px;pointer-events:none;z-index:30;display:none;min-width:140px;box-shadow:0 4px 20px rgba(0,0,0,0.7)}
+
+/* ── Idle overlay ── */
+/* FIX #3 – show a helpful overlay when no experiment is selected */
+.idle-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;z-index:8;opacity:1;transition:opacity .6s}
+.idle-overlay.hidden{opacity:0}
+.idle-title{font-size:15px;font-weight:700;color:rgba(0,212,255,0.5);letter-spacing:2px;margin-bottom:6px}
+.idle-sub{font-size:10px;color:rgba(255,255,255,0.18);letter-spacing:.5px}
+
+/* ── Other ── */
+.mini-chart{width:100%;height:56px;border-radius:6px;background:rgba(255,255,255,0.02)}
+.ctrl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ctrl-label{font-size:10px;color:var(--text2);min-width:60px}
+.ctrl-val{font-size:10px;color:var(--accent);font-weight:700;font-family:monospace;min-width:30px;text-align:right}
+input[type=range]{flex:1;accent-color:var(--accent)}
+.tool-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer;transition:all .15s}
+.tool-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.06)}
+.tool-btn.active{border-color:#cc44ff;color:#cc44ff;background:rgba(204,68,255,0.09)}
+.oleg{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:16px;font-size:9px;color:var(--text2);background:rgba(5,5,16,0.88);padding:7px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);pointer-events:none;white-space:nowrap}
+.oleg .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+
+/* ── Animations ── */
+@keyframes stagePulse{0%,100%{box-shadow:0 0 4px rgba(255,136,51,0.3)}50%{box-shadow:0 0 14px rgba(255,136,51,0.7)}}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 4px currentColor}50%{box-shadow:0 0 12px currentColor}}
+@keyframes deltaUp{0%{opacity:1;transform:translateY(-50%)}70%{opacity:.9;transform:translateY(-180%)}100%{opacity:0;transform:translateY(-220%)}}
+@keyframes idlePulse{0%,100%{opacity:.3}50%{opacity:.7}}
+@media(max-width:900px){.viz-side{display:none}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="viz-wrap">
+    <!-- ═══════ SIDEBAR ═══════ -->
+    <div class="viz-side">
+        <div id="livePanel">
+
+            <!-- Experiments list -->
+            <div class="vp">
+                <div class="vl">Experiments
+                    <!-- FIX #6 – live "LIVE" badge when any experiment is running -->
+                    <span id="runBadge" style="display:none;margin-left:6px;background:#ff8833;color:#000;font-size:8px;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.5px">LIVE</span>
+                </div>
+                <div id="expList" style="max-height:165px;overflow-y:auto">
+                    <div style="color:var(--text2);font-size:11px;padding:12px;text-align:center">Loading…</div>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:6px">
+                    <button onclick="loadExperiments()" class="btn btn-secondary btn-sm" style="flex:1">↻ Refresh</button>
+                    <button id="cmpBtn" onclick="toggleCompareMode()" class="tool-btn" title="Overlay a second experiment as ghost nodes">⚡ Compare</button>
+                </div>
+                <div id="cmpInfo" style="display:none;font-size:9px;color:#cc44ff;padding-top:5px;letter-spacing:.5px;text-align:center"></div>
+            </div>
+
+            <!-- Pipeline progress -->
+            <div class="vp" id="liveInfo" style="display:none">
+                <div class="vl">Pipeline</div>
+                <!-- FIX #4 – flex-wrap so 7 pills fit without overflowing -->
+                <div class="stage-flow-wrap" id="stageFlow"></div>
+                <div class="progress-bar" style="margin-bottom:5px;height:5px">
+                    <div class="progress-fill" id="liveProg" style="width:0%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2)">
+                    <span id="liveMsg" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px">Waiting…</span>
+                    <span id="elapsed" style="font-family:monospace;color:var(--accent);flex-shrink:0;margin-left:6px">0:00</span>
+                </div>
+            </div>
+
+            <!-- Score chart -->
+            <div class="vp" id="chartPanel" style="display:none">
+                <div class="vl">Best Score Over Time</div>
+                <canvas id="metricChart" class="mini-chart" width="288" height="54"></canvas>
+            </div>
+
+            <!-- Leaderboard -->
+            <!-- FIX #9 – separate inline styles so display:block later doesn't inherit padding:0 quirk -->
+            <div class="vp" id="lbPanel" style="display:none">
+                <div class="vl">Live Leaderboard</div>
+                <ol class="lb" id="leaderboard"></ol>
+            </div>
+
+            <!-- Controls -->
+            <div class="vp">
+                <div class="vl">Controls</div>
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Anim Speed</span>
+                    <input type="range" id="speedSlider" min="0.1" max="5" step="0.1" value="1">
+                    <span class="ctrl-val" id="speedVal">1.0×</span>
+                </div>
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Zoom</span>
+                    <input type="range" id="zoomSlider" min="10" max="60" step="1" value="36">
+                    <span class="ctrl-val" id="zoomVal">36</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:2px">
+                    <button onclick="captureScreenshot()" class="tool-btn" style="flex:1">📷 Screenshot</button>
+                    <button onclick="resetCamera()" class="tool-btn" style="flex:1">⌖ Reset View</button>
+                </div>
+                <div style="font-size:9px;color:var(--text2);margin-top:7px;line-height:1.5;opacity:.7">
+                    Drag to orbit · Scroll to zoom · Click node to inspect
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ CANVAS ═══════ -->
+    <div class="viz-main">
+        <canvas id="vizCanvas"></canvas>
+
+        <!-- FIX #3 – idle overlay shown until an experiment is selected -->
+        <div class="idle-overlay" id="idleOverlay">
+            <div class="idle-title">3D TRAINING VISUALIZER</div>
+            <div class="idle-sub" style="animation:idlePulse 3s ease infinite">← SELECT AN EXPERIMENT TO BEGIN</div>
+        </div>
+
+        <!-- Pipeline spine overlay (hidden until active) -->
+        <div class="pipeline-spine" id="pipelineSpine"></div>
+
+        <!-- HUD -->
+        <div class="ohud">
+            <div class="hchip" style="display:flex;align-items:center;gap:8px">
+                <div id="hudDot" style="width:9px;height:9px;border-radius:50%;background:var(--text2);transition:all .3s"></div>
+                <span id="hudLabel" style="font-size:10px;color:var(--text2);font-weight:600;letter-spacing:1px">IDLE</span>
+            </div>
+            <div class="hchip" id="hudStats" style="display:none">
+                <div style="display:flex;gap:18px">
+                    <div style="text-align:center">
+                        <div style="font-size:7px;color:var(--text2);letter-spacing:1.5px">MODELS</div>
+                        <div id="hudModels" style="font-size:15px;font-weight:700;color:var(--accent);font-family:monospace">0</div>
+                    </div>
+                    <div style="text-align:center">
+                        <div style="font-size:7px;color:var(--text2);letter-spacing:1.5px">BEST SCORE</div>
+                        <!-- FIX #5 – fallback for --success variable -->
+                        <div id="hudBest" style="font-size:15px;font-weight:700;color:var(--success,#44dd88);font-family:monospace">—</div>
+                    </div>
+                    <div style="text-align:center">
+                        <div style="font-size:7px;color:var(--text2);letter-spacing:1.5px">BEST MODEL</div>
+                        <div id="hudBestName" style="font-size:12px;font-weight:600;color:#e0eaff">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hover tooltip -->
+        <div class="hover-tip" id="hoverTip"></div>
+
+        <!-- Inspect panel -->
+        <div class="inspect-panel" id="inspectPanel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+                <div id="inspName" style="font-size:13px;font-weight:700;color:var(--accent)"></div>
+                <button onclick="document.getElementById('inspectPanel').style.display='none'" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;line-height:1">×</button>
+            </div>
+            <div id="inspMetrics" style="font-size:11px;line-height:1.9;color:var(--text)"></div>
+            <div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-top:8px;margin-bottom:3px">SCORE PROGRESSION</div>
+            <canvas id="nodeSparkline" width="220" height="38" style="width:100%;height:38px;border-radius:4px;background:rgba(255,255,255,0.025)"></canvas>
+        </div>
+
+        <!-- Legend -->
+        <div class="oleg">
+            <span><span class="dot" style="background:#444"></span>Pending</span>
+            <span><span class="dot" style="background:#ff8833;animation:pulseDot 1s infinite"></span>Training</span>
+            <span><span class="dot" style="background:#00d4ff"></span>Done</span>
+            <span><span class="dot" style="background:#44dd88;box-shadow:0 0 7px #44dd88"></span>Best</span>
+            <span><span class="dot" style="background:#cc44ff"></span>Ensemble</span>
+            <span><span class="dot" style="background:rgba(204,68,255,0.35);border:1px dashed #cc44ff;box-sizing:border-box"></span>Compare</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ╔══════════════════════════════════════════════════╗
+// ║  THREE.JS INIT                                   ║
+// ╚══════════════════════════════════════════════════╝
+let scene, camera, renderer, frame = 0, raycaster, mouse2D;
+let ambientStars = null;
+const canvas = document.getElementById('vizCanvas');
+
+let orbit = { active: false, startX: 0, startY: 0, theta: 0.3, phi: 1.15, radius: 36, targetTheta: 0.3, targetPhi: 1.15, targetRadius: 36 };
+let mouseX = 0, mouseY = 0;
+let animSpeed = 1.0;
+let currentStage = 'idle';
+
+// Sliders
+document.getElementById('speedSlider').oninput = function () {
+    animSpeed = +this.value;
+    document.getElementById('speedVal').textContent = (+this.value).toFixed(1) + '×';
+};
+document.getElementById('zoomSlider').oninput = function () {
+    orbit.targetRadius = +this.value;
+    document.getElementById('zoomVal').textContent = this.value;
+};
+function resetCamera() {
+    orbit.targetTheta = 0.3; orbit.targetPhi = 1.15; orbit.targetRadius = 36;
+    document.getElementById('zoomSlider').value = 36;
+    document.getElementById('zoomVal').textContent = '36';
+}
+function captureScreenshot() {
+    renderer.render(scene, camera);
+    const a = document.createElement('a');
+    a.href = renderer.domElement.toDataURL('image/png');
+    a.download = 'automl_viz_' + Date.now() + '.png'; a.click();
+}
+
+function initThree() {
+    // canvas.parentElement may report 0 dimensions if the browser hasn't
+    // completed the flex layout pass yet — fall back to window size so the
+    // renderer is never created with a 0-height canvas (which makes it invisible).
+    const w = canvas.parentElement.clientWidth  || (window.innerWidth  - 320);
+    const h = canvas.parentElement.clientHeight || (window.innerHeight - 56);
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050510, 0.013);
+    camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 200);
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    // ACESFilmicToneMapping crushes dark colours to black — LinearToneMapping
+    // lets low-emissive node materials remain visible.
+    renderer.setClearColor(0x050510); renderer.toneMapping = THREE.LinearToneMapping; renderer.toneMappingExposure = 1.4;
+    raycaster = new THREE.Raycaster(); mouse2D = new THREE.Vector2();
+
+    scene.add(new THREE.AmbientLight(0x334466, 0.8));
+    [[-14, 10, 14, 0x00d4ff, 4], [14, -8, 12, 0xff3366, 1.6], [0, 6, 18, 0x44dd88, 1.4], [0, -4, -10, 0xffaa33, 1.0]].forEach(([x, y, z, c, i]) => {
+        const l = new THREE.PointLight(c, i, 60); l.position.set(x, y, z); scene.add(l);
+    });
+    const gg = new THREE.GridHelper(60, 40, 0x111122, 0x0a0a18); gg.position.y = -8; scene.add(gg);
+
+    // Orbit drag
+    canvas.addEventListener('mousedown', e => { orbit.active = true; orbit.startX = e.clientX; orbit.startY = e.clientY; canvas.classList.add('orbiting'); });
+    window.addEventListener('mouseup',   () => { orbit.active = false; canvas.classList.remove('orbiting'); });
+    window.addEventListener('mousemove', e => {
+        const r = canvas.getBoundingClientRect();
+        mouseX = ((e.clientX - r.left) / r.width)  *  2 - 1;
+        mouseY = ((e.clientY - r.top)  / r.height) * -2 + 1;
+        mouse2D.set(mouseX, mouseY);
+        if (orbit.active) {
+            orbit.targetTheta -= (e.clientX - orbit.startX) * 0.008;
+            orbit.targetPhi    = Math.max(0.05, Math.min(1.45, orbit.targetPhi - (e.clientY - orbit.startY) * 0.006));
+            orbit.startX = e.clientX; orbit.startY = e.clientY;
+        } else { onCanvasHover(e); }
+    });
+    canvas.addEventListener('wheel', e => {
+        orbit.targetRadius = Math.max(10, Math.min(60, orbit.targetRadius + e.deltaY * 0.05));
+        document.getElementById('zoomSlider').value = Math.round(orbit.targetRadius);
+        document.getElementById('zoomVal').textContent = Math.round(orbit.targetRadius);
+        e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('click', onCanvasClick);
+    window.addEventListener('resize', () => {
+        const nw = canvas.parentElement.clientWidth || (window.innerWidth - 320);
+        const nh = canvas.parentElement.clientHeight || (window.innerHeight - 56);
+        camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh);
+    });
+}
+
+function updateCamera() {
+    orbit.theta  += (orbit.targetTheta  - orbit.theta)  * 0.07;
+    orbit.phi    += (orbit.targetPhi    - orbit.phi)    * 0.07;
+    orbit.radius += (orbit.targetRadius - orbit.radius) * 0.09;
+    if (!orbit.active) orbit.targetTheta += mouseX * 0.0003; // gentle idle sway
+    camera.position.set(
+        orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta),
+        orbit.radius * Math.cos(orbit.phi) + 2,
+        orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta)
+    );
+    camera.lookAt(0, 1, 0);
+}
+
+// FIX: use scene.remove() for each child so Three.js can clean up
+// internal state properly — mutating .length directly causes memory leaks
+function clearScene() {
+    const keep = scene.children.filter(c => c.isLight || c.type === 'GridHelper');
+    while (scene.children.length > 0) {
+        scene.remove(scene.children[0]);
+    }
+    keep.forEach(c => scene.add(c));
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  FIX #3 – AMBIENT IDLE STAR FIELD               ║
+// ║  Stars visible at all times; ambient particles   ║
+// ║  float gently so the canvas is never blank       ║
+// ╚══════════════════════════════════════════════════╝
+function buildAmbientStars() {
+    if (ambientStars) {
+        // Already built — just ensure it's in the scene (clearScene removes it)
+        if (!scene.children.includes(ambientStars)) scene.add(ambientStars);
+        return;
+    }
+    const count = 300;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+        pos[i * 3]     = (Math.random() - 0.5) * 120;
+        pos[i * 3 + 1] = (Math.random() - 0.5) * 60;
+        pos[i * 3 + 2] = (Math.random() - 0.5) * 80 - 20;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ color: 0x334466, size: 0.18, transparent: true, opacity: 0.6 });
+    ambientStars = new THREE.Points(geo, mat);
+    scene.add(ambientStars);
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  TEXT SPRITES                                    ║
+// ╚══════════════════════════════════════════════════╝
+function makeTextSprite(text, opts = {}) {
+    const sz = opts.size || 512, fs = opts.fontSize || 28;
+    const c = document.createElement('canvas');
+    c.width = sz; c.height = Math.ceil(sz / 2.2); // taller canvas — no clipping
+    const ctx = c.getContext('2d');
+    ctx.font = `bold ${fs}px 'Segoe UI','Helvetica Neue',sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = opts.color || '#aabbcc';
+    ctx.fillText(text, sz / 2, c.height / 2);
+    const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: opts.opacity || 0.85, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(opts.scale || 3, (opts.scale || 3) * (c.height / sz), 1);
+    return sprite;
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  SHOCKWAVE RINGS                                 ║
+// ╚══════════════════════════════════════════════════╝
+let shockwaves = [];
+function spawnShockwave(pos, color = 0x00d4ff, count = 3) {
+    for (let k = 0; k < count; k++) {
+        setTimeout(() => {
+            const geo = new THREE.RingGeometry(0.5, 0.85, 32);
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(geo, mat);
+            ring.position.copy(pos); ring.userData = { life: 0 };
+            scene.add(ring); shockwaves.push(ring);
+        }, k * 130);
+    }
+}
+function updateShockwaves() {
+    shockwaves = shockwaves.filter(r => {
+        r.userData.life += 0.025 * animSpeed;
+        r.scale.setScalar(1 + r.userData.life * 5);
+        r.material.opacity = Math.max(0, 0.9 - r.userData.life);
+        r.lookAt(camera.position);
+        if (r.userData.life >= 1) { scene.remove(r); return false; }
+        return true;
+    });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  SCORE BAR RINGS                                 ║
+// ╚══════════════════════════════════════════════════╝
+let scoreRings = {};
+function buildScoreRings(name, pos, score) {
+    if (scoreRings[name]) scoreRings[name].forEach(r => scene.remove(r));
+    scoreRings[name] = [];
+    const count = Math.max(1, Math.round(Math.min(1, score) * 4));
+    // Use the node's family colour so rings match the node
+    const mesh = P.meshes[name];
+    const ringColor = mesh ? (mesh.userData.famColor || 0x44dd88) : 0x44dd88;
+    for (let k = 0; k < count; k++) {
+        const ri = 0.88 + k * 0.24;
+        const geo = new THREE.RingGeometry(ri, ri + 0.07, 40);
+        const mat = new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.07 + score * 0.1, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(geo, mat);
+        ring.position.copy(pos); ring.userData = { offset: k * 0.65, score };
+        scene.add(ring); scoreRings[name].push(ring);
+    }
+}
+function updateScoreRings(t) {
+    Object.entries(scoreRings).forEach(([name, rings]) => {
+        const mesh = P.meshes[name];
+        rings.forEach(ring => {
+            if (mesh) ring.position.copy(mesh.position);
+            ring.lookAt(camera.position);
+            const pulse = Math.sin(t * 1.1 * animSpeed + ring.userData.offset) * 0.5 + 0.5;
+            ring.material.opacity = (0.03 + ring.userData.score * 0.09) * (0.5 + pulse * 0.5);
+            ring.scale.setScalar(1 + pulse * 0.09);
+        });
+    });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  COMPARE MODE — ghost nodes                      ║
+// ╚══════════════════════════════════════════════════╝
+let compareMode = false, compareExpId = null;
+let ghostMeshes = {}, ghostLabels = {}, ghostLines = {};
+
+function toggleCompareMode() {
+    compareMode = !compareMode;
+    document.getElementById('cmpBtn').classList.toggle('active', compareMode);
+    const info = document.getElementById('cmpInfo');
+    if (compareMode) {
+        info.style.display = 'block'; info.textContent = 'SELECT A SECOND EXPERIMENT TO COMPARE';
+        compareExpId = null;
+    } else {
+        info.style.display = 'none';
+        // FIX #6b – clear ghost scoreRings too
+        clearGhosts();
+        document.querySelectorAll('.exp-card.cmp-sel').forEach(c => c.classList.remove('cmp-sel'));
+    }
+}
+
+function clearGhosts() {
+    Object.values(ghostMeshes).forEach(m => scene.remove(m));
+    Object.values(ghostLabels).forEach(l => scene.remove(l));
+    Object.values(ghostLines ).forEach(l => scene.remove(l));
+    ghostMeshes = {}; ghostLabels = {}; ghostLines = {};
+}
+
+function loadCompareExp(id) {
+    clearGhosts();
+    fetch('/api/experiment/' + id + '/results').then(r => r.json()).then(data => {
+        if (!data.error) buildGhostArena(data.model_names || [], data.completed_models || []);
+    }).catch(() => {});
+}
+
+function buildGhostArena(names, models) {
+    if (!names.length) return;
+    const scored = {}; models.forEach(m => { scored[m.name] = m.primary_metric; });
+    const n = names.length;
+    // Use same ring-packing constants as main arena but on a slightly larger radius
+    // so ghosts sit outside the main ring and don't overlap it
+    const GHOST_RADIUS = 11.5;
+    const geo = new THREE.SphereGeometry(0.55, 14, 14);
+    names.forEach((name, i) => {
+        // Full circle spread so ghosts don't cluster
+        const angle = (i / n) * Math.PI * 2;
+        const x = Math.cos(angle) * GHOST_RADIUS;
+        const y = Math.sin(angle) * GHOST_RADIUS;
+        const z = Math.sin(i * 1.3) * 1.5;
+        const score = scored[name] || 0;
+        const mat = new THREE.MeshStandardMaterial({ color: 0xcc44ff, emissive: 0x440055, emissiveIntensity: 0.3 + score * 0.5, metalness: 0.5, roughness: 0.4, transparent: true, opacity: 0.42 });
+        const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z);
+        mesh.userData = { name, state: 'ghost', metric: score };
+        scene.add(mesh); ghostMeshes[name] = mesh;
+        const label = makeTextSprite(name.replace('Regression', 'Reg').replace('Classification', 'Clf'), { fontSize: 20, color: '#994dbb', scale: 2.3, opacity: 0.5 });
+        label.position.set(x, y - 1.1, z); scene.add(label); ghostLabels[name] = label;
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(x, y, z)]), new THREE.LineBasicMaterial({ color: 0x551177, transparent: true, opacity: 0.12 }));
+        scene.add(line); ghostLines[name] = line;
+    });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  PIPELINE SPINE OVERLAY                          ║
+// ╚══════════════════════════════════════════════════╝
+const PS_STAGES = ['init', 'feature_engineering', 'split', 'prepare', 'training', 'ensemble', 'visualizing'];
+const PS_NAMES  = { init: 'INIT', feature_engineering: 'FEAT', split: 'SPLIT', prepare: 'PREP', training: 'TRAIN', ensemble: 'ENS', visualizing: 'PLOT' };
+
+function updatePipelineSpine(activeStage) {
+    const spine = document.getElementById('pipelineSpine');
+    spine.classList.add('show');
+    const ai = PS_STAGES.indexOf(activeStage);
+    spine.innerHTML = PS_STAGES.flatMap((s, i) => {
+        const cls = i < ai ? 'done' : i === ai ? 'active' : 'pending';
+        return [`<div class="ps-stage ${cls}">${PS_NAMES[s]}</div>`, i < PS_STAGES.length - 1 ? '<div class="ps-arrow">›</div>' : ''];
+    }).join('');
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  HOVER TOOLTIP                                   ║
+// ╚══════════════════════════════════════════════════╝
+const hoverTip = document.getElementById('hoverTip');
+let lastHovered = null;
+function onCanvasHover(e) {
+    if (orbit.active) { hoverTip.style.display = 'none'; return; }
+    raycaster.setFromCamera(mouse2D, camera);
+    const hits = raycaster.intersectObjects([...Object.values(P.meshes), ...Object.values(ghostMeshes)]);
+    if (hits.length) {
+        const ud = hits[0].object.userData;
+        if (ud.name !== lastHovered) {
+            lastHovered = ud.name;
+            const isGhost = ud.state === 'ghost';
+            hoverTip.innerHTML = `<div style="font-weight:700;color:${isGhost ? '#cc44ff' : 'var(--accent)'};margin-bottom:2px">${ud.name}${isGhost ? ' ◈' : ''}</div>` +
+                (ud.family ? `<div style="font-size:9px;color:var(--text2)">${ud.family}</div>` : '') +
+                ((ud.state === 'completed' || isGhost) ? `<div style="color:var(--success,#44dd88);font-family:monospace;margin-top:2px">${(ud.metric || 0).toFixed(4)}</div>` : '') +
+                (ud.state === 'training' ? '<div style="color:#ff8833">⚡ Training…</div>' : '') +
+                (ud.state === 'pending'  ? '<div style="color:var(--text2)">Pending</div>' : '');
+        }
+        const r = canvas.getBoundingClientRect();
+        hoverTip.style.left = (e.clientX - r.left + 16) + 'px';
+        hoverTip.style.top  = (e.clientY - r.top  - 12) + 'px';
+        hoverTip.style.display = 'block';
+        canvas.style.cursor = 'pointer';
+    } else {
+        if (lastHovered) { hoverTip.style.display = 'none'; lastHovered = null; }
+        canvas.style.cursor = orbit.active ? 'grabbing' : 'grab';
+    }
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  LIVE PIPELINE STATE                             ║
+// ╚══════════════════════════════════════════════════╝
+let liveSSE = null;
+let P = {
+    models: [], meshes: {}, glows: {}, labels: {}, particles: [], lines: {}, ensembleLines: {},
+    dataNode: null, outNode: null, crownSprite: null,
+    bestName: '', bestScore: 0, scoreHistory: [], prevScores: {},
+    startTime: 0, selectedExp: null, prevCompleted: new Set()
+};
+
+// FIX #6 – auto-refresh experiment list every 8s when any is running
+let autoRefreshTimer = null;
+function startAutoRefresh() {
+    if (autoRefreshTimer) return;
+    autoRefreshTimer = setInterval(() => loadExperiments(), 8000);
+}
+function stopAutoRefresh() {
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
+
+function loadExperiments() {
+    fetch('/api/experiments/list').then(r => r.json()).then(exps => {
+        const el = document.getElementById('expList');
+        if (!exps.length) {
+            el.innerHTML = '<div style="color:var(--text2);font-size:11px;padding:14px;text-align:center">No experiments yet<br><a href="/" style="color:var(--accent)">Start training →</a></div>';
+            stopAutoRefresh();
+            document.getElementById('runBadge').style.display = 'none';
+            return;
+        }
+        const anyRunning = exps.some(e => e.status === 'running');
+        document.getElementById('runBadge').style.display = anyRunning ? 'inline' : 'none';
+        if (anyRunning) startAutoRefresh(); else stopAutoRefresh();
+
+        el.innerHTML = exps.map(e => {
+            const sc = { completed: '#44dd88', running: '#ff8833', pending: '#00d4ff', failed: '#ff5566' }[e.status] || '#555';
+            return `<div class="exp-card${P.selectedExp === e.id ? ' sel' : ''}" data-id="${e.id}" data-status="${e.status}" onclick="handleExpClick(this)">
+                <span class="ec-dot" style="background:${sc}"></span>
+                <strong style="color:var(--text)">${e.task_type || '—'}</strong> <span style="color:${sc};font-weight:600">${e.status}</span>
+                <div style="color:var(--text2);font-size:10px;margin-top:2px">${(e.dataset || '').split('_').slice(1).join('_') || '—'} · ${e.rows || '?'} rows${e.best_model ? ' · <span style=color:var(--accent)>' + e.best_model + '</span>' : ''}</div>
+            </div>`;
+        }).join('');
+    }).catch(() => {});
+}
+
+function handleExpClick(el) {
+    if (compareMode) {
+        if (el.dataset.id === P.selectedExp) return;
+        document.querySelectorAll('.exp-card.cmp-sel').forEach(c => c.classList.remove('cmp-sel'));
+        el.classList.add('cmp-sel');
+        compareExpId = el.dataset.id;
+        loadCompareExp(compareExpId);
+        document.getElementById('cmpInfo').textContent = 'COMPARING ' + (el.dataset.id || '').substring(0, 8).toUpperCase() + '…';
+    } else {
+        connectExp(el);
+    }
+}
+
+// ─── fetchResults: single place for all result fetches with error handling ───
+function fetchResults(id) {
+    fetch('/api/experiment/' + id + '/results')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(data => {
+            if (data.error) {
+                setHUD('ERROR', '#ff5566');
+                document.getElementById('liveMsg').textContent = 'Error: ' + data.error;
+            } else {
+                renderCompletedResults(data);
+            }
+        })
+        .catch(err => {
+            console.error('[AutoML] Results fetch failed:', err);
+            setHUD('ERROR', '#ff5566');
+            document.getElementById('liveMsg').textContent = 'Failed to load results — check console';
+        });
+}
+
+function connectExp(el) {
+    const id = el.dataset.id, status = el.dataset.status;
+    disconnectSSE();
+    if (elapsedInterval) clearInterval(elapsedInterval);
+
+    P.selectedExp = id; P.scoreHistory = []; P.prevCompleted = new Set(); P.prevScores = {};
+    P.bestName = ''; P.bestScore = 0; P.startTime = Date.now();
+    // FIX #7 – reset crown when switching experiments
+    if (P.crownSprite) P.crownSprite.visible = false;
+
+    document.querySelectorAll('.exp-card:not(.cmp-sel)').forEach(c => c.classList.remove('sel'));
+    el.classList.add('sel');
+    // FIX #1 – use explicit 'block' not '' to avoid relying on cascade
+    ['liveInfo', 'lbPanel', 'chartPanel'].forEach(x => { document.getElementById(x).style.display = 'block'; });
+    document.getElementById('hudStats').style.display = 'block';
+    document.getElementById('inspectPanel').style.display = 'none';
+    // FIX #3 – hide idle overlay once experiment is selected
+    document.getElementById('idleOverlay').classList.add('hidden');
+
+    if (status === 'completed' || status === 'failed') {
+        setHUD(status === 'completed' ? 'COMPLETE' : 'FAILED', status === 'completed' ? '#44dd88' : '#ff5566');
+        document.getElementById('liveProg').style.width = '100%';
+        document.getElementById('liveMsg').textContent = status === 'completed' ? 'Training finished' : 'Training failed';
+        fetchResults(id);
+    } else {
+        setHUD('CONNECTING', '#00d4ff');
+        liveSSE = new EventSource('/api/progress/' + id);
+        liveSSE.onmessage = function (ev) {
+            const d = JSON.parse(ev.data);
+            if (d.status === 'completed' || d.status === 'failed' || d.status === 'timeout') {
+                disconnectSSE();
+                if (d.status === 'completed') {
+                    setHUD('COMPLETE', '#44dd88');
+                    document.getElementById('liveProg').style.width = '100%';
+                    fetchResults(id);
+                } else if (d.status === 'failed') {
+                    setHUD('FAILED', '#ff5566');
+                    document.getElementById('liveMsg').textContent = d.message || 'Training failed';
+                } else { setHUD('TIMEOUT', '#ff8833'); }
+                return; // do NOT call handleLiveUpdate on terminal messages
+            }
+            handleLiveUpdate(d);
+        };
+        liveSSE.onerror = () => {
+            disconnectSSE();
+            fetchResults(id);
+        };
+        startElapsedTimer();
+    }
+}
+
+function renderCompletedResults(data) {
+    const models = data.completed_models || [];
+    const names  = data.model_names    || models.map(m => m.name);
+    console.log('[AutoML] renderCompletedResults — names:', names.length, '| models:', models.length, '| sample:', names.slice(0,3));
+    if (!names.length) { document.getElementById('liveMsg').textContent = 'No model data available'; return; }
+
+    if (data.training_time) {
+        const s = Math.round(data.training_time), m = Math.floor(s / 60), sec = s % 60;
+        document.getElementById('elapsed').textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
+        if (elapsedInterval) clearInterval(elapsedInterval);
+    }
+
+    try {
+        P.models = names; buildArena(names);
+    } catch(e) { console.error('[AutoML] buildArena error:', e); }
+    try {
+        updateNodes(models, '');
+    } catch(e) { console.error('[AutoML] updateNodes error:', e); }
+    updateLeaderboard(models);
+
+    if (models.length) {
+        const best = models.reduce((a, b) => b.primary_metric > a.primary_metric ? b : a, models[0]);
+        P.bestScore = best.primary_metric; P.bestName = best.name;
+        document.getElementById('hudModels').textContent = models.length + '/' + names.length;
+        document.getElementById('hudBest').textContent = best.primary_metric.toFixed(4);
+        document.getElementById('hudBestName').textContent = best.name;
+        P.scoreHistory = [];
+        let rb = -Infinity;
+        models.forEach(m => { rb = Math.max(rb, m.primary_metric); P.scoreHistory.push(rb); });
+        drawMetricChart();
+        models.forEach(m => { if (P.meshes[m.name]) buildScoreRings(m.name, P.meshes[m.name].position, m.primary_metric); });
+        drawEnsembleBeams(models);
+        updateOutputNode(best.name, best.primary_metric, data.task_type || 'classification');
+    }
+
+    updatePipelineSpine('visualizing');
+    const stageNames = { init: 'Init', feature_engineering: 'Features', split: 'Split', prepare: 'Prepare', training: 'Training', ensemble: 'Ensemble', visualizing: 'Plots' };
+    document.getElementById('stageFlow').innerHTML = ['init','feature_engineering','split','prepare','training','ensemble','visualizing'].map(s =>
+        `<span class="stage-pill" style="background:rgba(68,221,136,0.12);color:var(--success,#44dd88)">✓ ${stageNames[s]}</span>`
+    ).join('');
+}
+
+// ── updateOutputNode: populate score/model text and draw victory beam ──────
+function updateOutputNode(bestName, bestScore, taskType) {
+    if (!P.outNode) return;
+    const pos = P.outNode.position;
+
+    // Remove old score/model sprites
+    if (P.outNode.userData.scoreSprite) scene.remove(P.outNode.userData.scoreSprite);
+    if (P.outNode.userData.modelSprite) scene.remove(P.outNode.userData.modelSprite);
+    if (P.outNode.userData.victoryBeam) scene.remove(P.outNode.userData.victoryBeam);
+
+    // Score text above node
+    const scoreText = (taskType === 'regression' ? 'R²: ' : 'F1: ') + bestScore.toFixed(4);
+    const scoreSprite = makeTextSprite(scoreText, { fontSize: 32, color: '#44ffaa', scale: 3.2, opacity: 1 });
+    scoreSprite.position.set(pos.x, pos.y + 2.2, pos.z);
+    scene.add(scoreSprite);
+    P.outNode.userData.scoreSprite = scoreSprite;
+
+    // Best model name below score
+    const modelSprite = makeTextSprite('★ ' + bestName, { fontSize: 24, color: '#aaffcc', scale: 2.8, opacity: 0.9 });
+    modelSprite.position.set(pos.x, pos.y + 3.8, pos.z);
+    scene.add(modelSprite);
+    P.outNode.userData.modelSprite = modelSprite;
+
+    // Golden "victory beam" from best model node up to output
+    const bestMesh = P.meshes[bestName];
+    if (bestMesh) {
+        const from = bestMesh.position.clone();
+        const to   = pos.clone();
+        const mid  = from.clone().lerp(to, 0.5); mid.x += 2; mid.z += 1;
+        const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+        const beam = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)),
+            new THREE.LineBasicMaterial({ color: 0xffdd44, transparent: true, opacity: 0.7 })
+        );
+        scene.add(beam);
+        P.outNode.userData.victoryBeam = beam;
+    }
+
+    // Light up the output node gold when results are in
+    P.outNode.material.color.setHex(0xffdd44);
+    P.outNode.material.emissive.setHex(0xaa8800);
+    P.outNode.material.emissiveIntensity = 1.0;
+    if (P.outNode.userData.glowRings) {
+        P.outNode.userData.glowRings.forEach(r => { r.material.color.setHex(0xffdd44); r.material.opacity = 0.06; });
+    }
+    if (P.outNode.userData.eqRing) {
+        P.outNode.userData.eqRing.material.color.setHex(0xffdd44);
+        P.outNode.userData.eqRing.material.opacity = 0.6;
+    }
+}
+
+function disconnectSSE() { if (liveSSE) { liveSSE.close(); liveSSE = null; } }
+
+function setHUD(label, color) {
+    document.getElementById('hudLabel').textContent = label;
+    const d = document.getElementById('hudDot'); d.style.background = color; d.style.boxShadow = '0 0 10px ' + color;
+}
+
+let elapsedInterval = null;
+function startElapsedTimer() {
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    elapsedInterval = setInterval(() => {
+        const s = Math.floor((Date.now() - P.startTime) / 1000), m = Math.floor(s / 60), sec = s % 60;
+        document.getElementById('elapsed').textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
+    }, 1000);
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  ENSEMBLE BEAMS                                  ║
+// ╚══════════════════════════════════════════════════╝
+function drawEnsembleBeams(models) {
+    Object.values(P.ensembleLines).flat().forEach(l => scene.remove(l));
+    P.ensembleLines = {};
+    const ensMods  = models.filter(m =>  m.name.includes('Ensemble') || m.name.includes('Stacking') || m.name.includes('Voting'));
+    const baseMods = models.filter(m => !m.name.includes('Ensemble') && !m.name.includes('Stacking') && !m.name.includes('Voting'));
+    ensMods.forEach(ens => {
+        const em = P.meshes[ens.name]; if (!em) return;
+        P.ensembleLines[ens.name] = [];
+        [...baseMods].sort((a, b) => b.primary_metric - a.primary_metric).slice(0, 4).forEach(base => {
+            const bm = P.meshes[base.name]; if (!bm) return;
+            const mid = new THREE.Vector3().addVectors(bm.position, em.position).multiplyScalar(0.5); mid.y += 2.5;
+            const line = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(bm.position.clone(), mid, em.position.clone()).getPoints(28)),
+                new THREE.LineBasicMaterial({ color: 0xcc44ff, transparent: true, opacity: 0.35 })
+            );
+            scene.add(line); P.ensembleLines[ens.name].push(line);
+        });
+    });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  HANDLE SSE UPDATE                               ║
+// ╚══════════════════════════════════════════════════╝
+function handleLiveUpdate(d) {
+    document.getElementById('liveProg').style.width = Math.min(100, Math.max(0, d.percent || 0)) + '%';
+    if (d.message) document.getElementById('liveMsg').textContent = d.message;
+
+    const stage = d.stage || 'init';
+    currentStage = stage;
+    updatePipelineSpine(stage);
+
+    const allStages = ['init','feature_engineering','split','prepare','training','ensemble','visualizing'];
+    const stageNames = { init:'Init', feature_engineering:'Features', split:'Split', prepare:'Prepare', training:'Training', ensemble:'Ensemble', visualizing:'Plots' };
+    const ai = allStages.indexOf(stage);
+    document.getElementById('stageFlow').innerHTML = allStages.map((s, i) => {
+        const bg = i < ai ? 'rgba(0,212,255,0.15)' : i === ai ? 'rgba(255,136,51,0.2)' : 'rgba(255,255,255,0.03)';
+        const fg = i < ai ? 'var(--accent)' : i === ai ? '#ff8833' : 'var(--text2)';
+        return `<span class="stage-pill" style="background:${bg};color:${fg}">${i === ai ? '● ' : ''}${stageNames[s] || s}</span>`;
+    }).join('');
+
+    if (stage === 'training' || stage === 'ensemble') {
+        setHUD(stage === 'ensemble' ? 'ENSEMBLE' : 'TRAINING', '#ff8833');
+        const completed = d.completed_models || [];
+        const names     = d.model_names || completed.map(m => m.name);
+        const current   = d.current_model || '';
+        document.getElementById('hudModels').textContent = completed.length + '/' + (d.total_models || names.length);
+
+        if (names.length) {
+            // Order-independent set comparison — avoids rebuild on reordered SSE responses
+            const newSet = new Set(names), oldSet = new Set(P.models);
+            const changed = newSet.size !== oldSet.size || [...newSet].some(n => !oldSet.has(n));
+            if (changed) { P.models = names; buildArena(names); }
+        }
+
+        const nowCompleted = new Set(completed.map(m => m.name));
+        nowCompleted.forEach(n => {
+            if (!P.prevCompleted.has(n) && P.meshes[n]) {
+                spawnShockwave(P.meshes[n].position, 0x00d4ff, 3);
+                const m = completed.find(x => x.name === n);
+                if (m) { buildScoreRings(n, P.meshes[n].position, m.primary_metric); showScoreDelta(n, m.primary_metric); }
+            }
+        });
+        P.prevCompleted = nowCompleted;
+
+        if (completed.length) {
+            const best = completed.reduce((a, b) => b.primary_metric > a.primary_metric ? b : a, completed[0]);
+            P.bestScore = best.primary_metric; P.bestName = best.name;
+            document.getElementById('hudBest').textContent = best.primary_metric.toFixed(4);
+            document.getElementById('hudBestName').textContent = best.name;
+            P.scoreHistory.push(best.primary_metric); drawMetricChart();
+        }
+        if (stage === 'ensemble') drawEnsembleBeams(completed);
+        updateNodes(completed, current);
+        updateLeaderboard(completed);
+    } else if (stage === 'visualizing') {
+        setHUD('FINISHING', '#44dd88');
+    } else {
+        setHUD(stage.toUpperCase().replace(/_/g, ' '), '#00d4ff');
+    }
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  SCORE DELTA INDICATOR                           ║
+// ╚══════════════════════════════════════════════════╝
+function showScoreDelta(name, score) {
+    const prev = P.prevScores[name]; P.prevScores[name] = score;
+    if (prev === undefined) return;
+    const delta = score - prev, sign = delta >= 0 ? '+' : '';
+    const color = delta >= 0 ? '#44dd88' : '#ff5566';
+    document.querySelectorAll('#leaderboard li').forEach(row => {
+        if (row.textContent.includes(name)) {
+            let el = row.querySelector('.lb-delta');
+            if (!el) { el = document.createElement('span'); el.className = 'lb-delta'; row.appendChild(el); }
+            el.textContent = sign + delta.toFixed(3); el.style.color = color;
+            el.style.animation = 'none'; el.offsetHeight;
+            el.style.animation = 'deltaUp 2.5s ease forwards';
+        }
+    });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  MODEL FAMILY CLUSTERING                         ║
+// ╚══════════════════════════════════════════════════╝
+const FAMILIES = {
+    linear:   ['Linear','Logistic','Ridge','Lasso','ElasticNet','SGD','Perceptron'],
+    tree:     ['Decision','Extra','Random','Gradient','XGB','LGBM','CatBoost','AdaBoost'],
+    ensemble: ['Ensemble','Stacking','Voting','Bagging'],
+    svm:      ['SVM','SVR','SVC'],
+    knn:      ['KNN','Neighbor'],
+    nb:       ['Naive','Bayes'],
+};
+const FAM_ANGLES = { linear:-1.9, tree:-0.55, ensemble:0.4, svm:1.1, knn:1.7, nb:2.3, other:0.0 };
+const FAM_COLORS = { linear:0x00d4ff, tree:0x44dd88, ensemble:0xcc44ff, svm:0xff8833, knn:0xffaa33, nb:0x44aaff, other:0x6688aa };
+
+function getFamily(name) {
+    for (const [fam, keys] of Object.entries(FAMILIES)) { if (keys.some(k => name.includes(k))) return fam; }
+    return 'other';
+}
+
+function computeForceLayout(names) {
+    const N = names.length;
+    if (!N) return {};
+
+    /*
+     * RING-PACKING LAYOUT — guaranteed no overlap
+     * ─────────────────────────────────────────────
+     * Node sphere radius = 0.65, glow sphere = 1.0
+     * Minimum safe centre-to-centre = 2.6 (diameter + 0.3 padding)
+     *
+     * For a ring of radius R, the maximum nodes that fit without touching:
+     *   capacity = floor( 2π·R / MIN_SPACING )
+     *
+     * We fill ring 0 first, then ring 1, etc.
+     * Each ring is rotated by a small offset so nodes on adjacent rings
+     * don't line up radially (looks cleaner).
+     */
+    const MIN_SPACING = 2.8;   // min arc length between node centres
+    const RING_START  = 7.5;   // radius of innermost ring (clear of core glow + label)
+    const RING_STEP   = 3.2;   // gap between successive ring radii
+    const Y_SQUASH    = 1.0;   // no ellipse squash — pure circle, z-stagger gives depth
+
+    // 1. Assign each name to a ring slot
+    const slots = []; // [{name, ring, indexInRing, ringRadius, ringCount}]
+    let placed = 0, ringIdx = 0;
+    while (placed < N) {
+        const R   = RING_START + ringIdx * RING_STEP;
+        const cap = Math.max(1, Math.floor((2 * Math.PI * R) / MIN_SPACING));
+        const cnt = Math.min(cap, N - placed);
+        for (let k = 0; k < cnt; k++) {
+            slots.push({ name: names[placed + k], ring: ringIdx, k, cnt, R });
+        }
+        placed  += cnt;
+        ringIdx += 1;
+    }
+
+    // 2. Convert slots → positions
+    const result = {};
+    slots.forEach(s => {
+        // Evenly distribute on the full circle; rotate each ring by half-step offset
+        const offset = s.ring * (Math.PI / Math.max(s.cnt, 1));
+        const angle  = offset + (s.k / s.cnt) * Math.PI * 2;
+        // Small z-stagger per node adds depth without causing visual overlap
+        const z = Math.sin(s.k * 1.9 + s.ring * 2.3) * 2.2;
+        result[s.name] = new THREE.Vector3(
+            Math.cos(angle) * s.R,
+            Math.sin(angle) * s.R * Y_SQUASH,
+            z
+        );
+    });
+    return result;
+} // end computeForceLayout
+
+// ╔══════════════════════════════════════════════════╗
+// ║  BUILD 3D ARENA                                  ║
+// ╚══════════════════════════════════════════════════╝
+function buildArena(names) {
+    clearScene();
+    // FIX: buildAmbientStars handles scene.add internally (re-adds after clearScene)
+    buildAmbientStars();
+
+    shockwaves = []; scoreRings = {};
+    P.meshes = {}; P.glows = {}; P.labels = {}; P.particles = []; P.lines = {}; P.ensembleLines = {};
+
+    // Data core
+    P.dataNode = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4, 2),
+        new THREE.MeshStandardMaterial({ color:0x00d4ff, emissive:0x004466, emissiveIntensity:0.6, metalness:0.8, roughness:0.15 }));
+    P.dataNode.position.set(0, 0, 0); scene.add(P.dataNode);
+    const coreGlow = new THREE.Mesh(new THREE.SphereGeometry(2.2, 16, 16), new THREE.MeshBasicMaterial({ color:0x00d4ff, transparent:true, opacity:0.06 }));
+    scene.add(coreGlow); P.dataNode.userData.glow = coreGlow;
+    const coreLabel = makeTextSprite('DATASET', { fontSize:22, color:'#5588aa', scale:2.5 }); coreLabel.position.set(0,-2.5,0); scene.add(coreLabel);
+
+    // ── OUTPUT node (rich results hub) ──────────────────────────────────────
+    // Use a larger icosahedron so it reads as important
+    P.outNode = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(1.3, 2),
+        new THREE.MeshStandardMaterial({
+            color: 0x44dd88, emissive: 0x22aa55,
+            emissiveIntensity: 0.7, metalness: 0.85, roughness: 0.1
+        })
+    );
+    P.outNode.position.set(0, 9, 0);
+    P.outNode.userData = { type: 'output' };
+    scene.add(P.outNode);
+
+    // Multi-layer glow rings around output
+    P.outNode.userData.glowRings = [];
+    [1.9, 2.6, 3.4].forEach((r, i) => {
+        const ring = new THREE.Mesh(
+            new THREE.SphereGeometry(r, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0x44dd88, transparent: true, opacity: 0.04 - i * 0.01, wireframe: false })
+        );
+        ring.position.copy(P.outNode.position);
+        scene.add(ring);
+        P.outNode.userData.glowRings.push(ring);
+    });
+
+    // Equatorial ring around output node
+    const eqRing = new THREE.Mesh(
+        new THREE.RingGeometry(1.5, 1.65, 48),
+        new THREE.MeshBasicMaterial({ color: 0x44dd88, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+    );
+    eqRing.position.copy(P.outNode.position);
+    scene.add(eqRing);
+    P.outNode.userData.eqRing = eqRing;
+
+    // Score sprite (updated later by updateOutputNode)
+    P.outNode.userData.scoreSprite = null;
+    P.outNode.userData.modelSprite = null;
+    P.outNode.userData.victoryBeam = null;
+
+    // Static label
+    const outLabel = makeTextSprite('OUTPUT', { fontSize: 20, color: '#44aa66', scale: 2.2, opacity: 0.7 });
+    outLabel.position.set(0, 12.2, 0);
+    scene.add(outLabel);
+    P.outNode.userData.label = outLabel;
+
+    if (!names.length) return;
+
+    const positions = computeForceLayout(names);
+    const nodeGeo = new THREE.SphereGeometry(0.65, 24, 24);
+    const glowGeo = new THREE.SphereGeometry(1.0, 12, 12);
+
+    names.forEach(name => {
+        const pos = positions[name] || new THREE.Vector3(0, 0, 0);
+        const fam = getFamily(name), famColor = FAM_COLORS[fam] || 0x334466;
+
+        const mesh = new THREE.Mesh(nodeGeo, new THREE.MeshStandardMaterial({
+            color: famColor,
+            emissive: famColor,
+            emissiveIntensity: 0.18,   // visible even in pending state
+            metalness: 0.5, roughness: 0.35,
+            transparent: true, opacity: 0.55   // dim but clearly visible
+        }));
+        mesh.position.copy(pos);
+        mesh.userData = { name, state:'pending', metric:0, metrics:null, family:fam, famColor, baseZ:pos.z };
+        scene.add(mesh); P.meshes[name] = mesh;
+
+        const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color:famColor, transparent:true, opacity:0.03 }));
+        glow.position.copy(pos); scene.add(glow); P.glows[name] = glow;
+
+        const label = makeTextSprite(name.replace('Regression','Reg').replace('Classification','Clf').replace('Logistic','Log'), { fontSize:24, color:'#667788', scale:2.8, opacity:0.7 });
+        label.position.set(pos.x, pos.y-1.3, pos.z); scene.add(label); P.labels[name] = label;
+
+        const mid = new THREE.Vector3(pos.x * 0.4, pos.y / 2, pos.z + 2);
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0,0,0), mid, pos.clone()).getPoints(30)),
+            new THREE.LineBasicMaterial({ color:0x182838, transparent:true, opacity:0.1 }));
+        scene.add(line); P.lines[name] = line;
+    });
+
+    // Particles
+    const pGeo = new THREE.SphereGeometry(0.09, 8, 8);
+    for (let i = 0; i < 120; i++) {
+        const p = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color:0x00d4ff, transparent:true, opacity:0 }));
+        p.visible = false;
+        p.userData = { active:false, progress:0, speed:0.004+Math.random()*0.01, target:'', returning:false };
+        scene.add(p); P.particles.push(p);
+    }
+
+    // Crown sprite — reuse or create
+    if (!P.crownSprite) P.crownSprite = makeTextSprite('👑', { fontSize:48, scale:1.5, opacity:1 });
+    P.crownSprite.visible = false; // always start hidden until updateNodes sets best
+    scene.add(P.crownSprite);
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  UPDATE NODE STATES                              ║
+// ╚══════════════════════════════════════════════════╝
+function updateNodes(completed, current) {
+    const cSet = new Set(completed.map(m => m.name));
+    let bestN = '', bestS = -Infinity;
+    completed.forEach(m => { if (m.primary_metric > bestS) { bestS = m.primary_metric; bestN = m.name; } });
+
+    Object.entries(P.meshes).forEach(([name, mesh]) => {
+        const glow = P.glows[name], label = P.labels[name], line = P.lines[name];
+        const cm = completed.find(m => m.name === name);
+        const isEns = name.includes('Ensemble') || name.includes('Stacking') || name.includes('Voting');
+        const famColor = mesh.userData.famColor || 0x334466;
+
+        if (name === current && !cSet.has(name)) {
+            mesh.userData.state = 'training';
+            mesh.material.color.setHex(0xff8833); mesh.material.emissive.setHex(0x553311); mesh.material.emissiveIntensity = 0.7;
+            if (glow) { glow.material.color.setHex(0xff8833); glow.material.opacity = 0.18; }
+            if (label) label.material.opacity = 1;
+            if (line)  { line.material.color.setHex(0xff8833);  line.material.opacity = 0.3; }
+        } else if (cm) {
+            mesh.userData.state = 'completed'; mesh.userData.metric = cm.primary_metric; mesh.userData.metrics = cm.metrics || cm;
+            const isBest = name === bestN;
+            if (isBest) {
+                mesh.material.color.setHex(0x44dd88); mesh.material.emissive.setHex(0x22aa55); mesh.material.emissiveIntensity = 1.2;
+                mesh.material.opacity = 1; mesh.material.transparent = false;
+                if (glow) { glow.material.color.setHex(0x44dd88); glow.material.opacity = 0.28; }
+                if (line)  { line.material.color.setHex(0x44dd88);  line.material.opacity = 0.42; }
+                // FIX #2 – set mesh z FIRST, then position crown using the updated z
+                mesh.position.z = mesh.userData.baseZ + 2.0;
+                if (P.crownSprite) { P.crownSprite.visible = true; P.crownSprite.position.set(mesh.position.x, mesh.position.y + 1.5, mesh.position.z); }
+            } else if (isEns) {
+                mesh.material.color.setHex(0xcc44ff); mesh.material.emissive.setHex(0x551188); mesh.material.emissiveIntensity = 0.8;
+                mesh.material.opacity = 1; mesh.material.transparent = false;
+                if (glow) { glow.material.color.setHex(0xcc44ff); glow.material.opacity = 0.15; }
+                if (line)  { line.material.color.setHex(0xcc44ff);  line.material.opacity = 0.3; }
+            } else {
+                const s = Math.max(0, Math.min(1, cm.primary_metric));
+                mesh.material.color.setHex(lerpColor(0x334466, famColor, s * 0.8 + 0.2));
+                mesh.material.emissive.setHex(lerpColor(0x112233, famColor, s * 0.5));
+                mesh.material.emissiveIntensity = 0.35 + s * 0.65;
+                mesh.material.opacity = 0.7 + s * 0.3; mesh.material.transparent = s < 0.99;
+                if (glow) { glow.material.color.setHex(famColor); glow.material.opacity = 0.06 + s * 0.14; }
+                if (line)  { line.material.color.setHex(lerpColor(0x182838, famColor, s)); line.material.opacity = 0.08 + s * 0.28; }
+                mesh.position.z = mesh.userData.baseZ + s * 1.5; // z-depth encoding
+            }
+            mesh.scale.setScalar(0.7 + Math.min(1, cm.primary_metric) * 0.6);
+            if (label) label.material.opacity = 0.9;
+        } else {
+            mesh.userData.state = 'pending';
+            // Keep family colour at low emissive — visible but clearly "waiting"
+            mesh.material.color.setHex(famColor);
+            mesh.material.emissive.setHex(famColor);
+            mesh.material.emissiveIntensity = 0.12;
+            mesh.material.opacity = 0.45;
+            if (glow)  glow.material.opacity = 0.04;
+            if (label) label.material.opacity = 0.35;
+            if (line)  { line.material.color.setHex(0x111120); line.material.opacity = 0.05; }
+            mesh.scale.setScalar(0.7);
+        }
+    });
+}
+
+function lerpColor(a, b, t) {
+    const cl = v => Math.max(0, Math.min(255, Math.round(v)));
+    const r  = cl(((a>>16)&0xff) + (((b>>16)&0xff) - ((a>>16)&0xff)) * t);
+    const g  = cl(((a>> 8)&0xff) + (((b>> 8)&0xff) - ((a>> 8)&0xff)) * t);
+    const bl = cl( (a    &0xff)  +  ((b    &0xff)  -  (a    &0xff))  * t);
+    return (r << 16) | (g << 8) | bl;
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  LEADERBOARD                                     ║
+// ╚══════════════════════════════════════════════════╝
+function updateLeaderboard(completed) {
+    if (!completed.length) return;
+    const sorted = [...completed].sort((a, b) => b.primary_metric - a.primary_metric);
+    const top = sorted[0].primary_metric;
+    const colors = ['#00d4ff','#44dd88','#ff8833','#cc44ff','#ff5566','#ffaa33','#44aaff','#88dd44'];
+    document.getElementById('leaderboard').innerHTML = sorted.map((m, i) => {
+        const pct = top > 0 ? (m.primary_metric / top * 100) : 0;
+        const c = colors[i % colors.length];
+        const isEns = m.name.includes('Ensemble') || m.name.includes('Stacking');
+        return `<li class="${i === 0 ? 'best' : ''}" onclick="inspectModel('${m.name}')">
+            <div class="lb-rank" style="background:${c}15;color:${c};border:1px solid ${c}33">${i === 0 ? '👑' : i + 1}</div>
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${isEns ? '⚡ ' : ''}${m.name}</div>
+                <div style="font-size:9px;color:var(--text2);margin-top:1px">${getFamily(m.name)}</div>
+                <div class="lb-bar" style="width:${pct}%;background:${c};margin-top:3px"></div>
+            </div>
+            <div style="font-family:monospace;font-weight:700;color:${c};font-size:12px;flex-shrink:0">${m.primary_metric.toFixed(4)}</div>
+        </li>`;
+    }).join('');
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  METRIC CHART                                    ║
+// ╚══════════════════════════════════════════════════╝
+function drawMetricChart() {
+    const c = document.getElementById('metricChart'), ctx = c.getContext('2d');
+    const data = P.scoreHistory, w = c.width, h = c.height;
+    if (data.length < 2) return;
+    ctx.clearRect(0, 0, w, h);
+    const mn = Math.min(...data) * 0.95, mx = Math.max(...data) * 1.02, rng = mx - mn || 0.01;
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 0.5;
+    for (let i = 0; i < 4; i++) { const gy = h * i / 3; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
+    const grd = ctx.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, 'rgba(68,221,136,0.22)'); grd.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    data.forEach((v, i) => { const x = (i / (data.length - 1)) * w, y = h - ((v - mn) / rng) * h; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.strokeStyle = '#44dd88'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fillStyle = grd; ctx.fill();
+    const ly = h - ((data[data.length - 1] - mn) / rng) * h;
+    ctx.beginPath(); ctx.arc(w, ly, 3, 0, Math.PI * 2); ctx.fillStyle = '#44dd88'; ctx.fill();
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  NODE SPARKLINE                                  ║
+// ╚══════════════════════════════════════════════════╝
+function drawNodeSparkline(hist, color) {
+    const c = document.getElementById('nodeSparkline'), ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    if (!hist || hist.length < 2) {
+        ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('no data', c.width / 2, c.height / 2 + 3);
+        return;
+    }
+    const mn = Math.min(...hist) * 0.97, mx = Math.max(...hist) * 1.02, rng = mx - mn || 0.01;
+    const w = c.width, h = c.height;
+    const grd = ctx.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, color + '44'); grd.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    hist.forEach((v, i) => { const x = (i / (hist.length - 1)) * w, y = h - ((v - mn) / rng) * (h - 4) - 2; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fillStyle = grd; ctx.fill();
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  CLICK & INSPECT                                 ║
+// ╚══════════════════════════════════════════════════╝
+function onCanvasClick() {
+    if (orbit.active) return;
+    raycaster.setFromCamera(mouse2D, camera);
+    const hits = raycaster.intersectObjects([...Object.values(P.meshes), ...Object.values(ghostMeshes)]);
+    if (hits.length) { inspectModel(hits[0].object.userData.name); }
+    else { document.getElementById('inspectPanel').style.display = 'none'; }
+}
+
+function inspectModel(name) {
+    const mesh = P.meshes[name] || ghostMeshes[name]; if (!mesh) return;
+    const ud = mesh.userData, isGhost = ud.state === 'ghost';
+    const famColorHex = ud.famColor ? '#' + ud.famColor.toString(16).padStart(6, '0') : 'var(--accent)';
+    const stateColor = ud.state === 'completed' ? 'var(--success,#44dd88)' : ud.state === 'training' ? '#ff8833' : isGhost ? '#cc44ff' : 'var(--text2)';
+
+    document.getElementById('inspName').textContent = name + (name === P.bestName ? ' 👑' : '') + (isGhost ? ' ◈' : '');
+    let html = `<div style="color:var(--text2);margin-bottom:6px">Status: <span style="color:${stateColor};font-weight:600">${ud.state.toUpperCase()}</span>
+        ${ud.family ? `<span style="color:${famColorHex};font-size:9px;margin-left:6px;border:1px solid ${famColorHex}33;padding:1px 5px;border-radius:4px">${ud.family.toUpperCase()}</span>` : ''}
+    </div>`;
+    if (ud.metrics) {
+        Object.entries(ud.metrics).forEach(([k, v]) => {
+            if (['model_name','cv_scores','name','primary_metric'].includes(k)) return;
+            if (typeof v === 'number') html += `<div>${k}: <span style="color:var(--accent);font-weight:600;font-family:monospace">${v.toFixed(4)}</span></div>`;
+        });
+    }
+    document.getElementById('inspMetrics').innerHTML = html;
+    document.getElementById('inspectPanel').style.display = 'block';
+
+    const idx = P.models.indexOf(name);
+    const hist = idx >= 0 && P.scoreHistory.length ? P.scoreHistory.slice(0, idx + 1) : null;
+    const sparkColor = isGhost ? '#cc44ff' : (ud.state === 'completed' ? '#44dd88' : '#00d4ff');
+    setTimeout(() => drawNodeSparkline(hist, sparkColor), 10);
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  ANIMATION LOOP                                  ║
+// ╚══════════════════════════════════════════════════╝
+function animate() {
+    requestAnimationFrame(animate); frame++;
+    const t = frame * 0.012 * animSpeed;
+    updateCamera();
+    animateLive(t);
+    updateShockwaves();
+    updateScoreRings(t);
+    // FIX #3 – gently rotate ambient stars
+    if (ambientStars) ambientStars.rotation.y = t * 0.008;
+    renderer.render(scene, camera);
+}
+
+function animateLive(t) {
+    if (P.dataNode) {
+        P.dataNode.rotation.y = t * 0.4; P.dataNode.rotation.x = Math.sin(t * 0.15) * 0.2;
+        const g = P.dataNode.userData.glow; if (g) g.scale.setScalar(1 + Math.sin(t * 1.5) * 0.08);
+    }
+    if (P.outNode) {
+        P.outNode.rotation.y = -t * 0.5;
+        P.outNode.rotation.x = Math.sin(t * 0.3) * 0.15;
+        const baseY = 9;
+        P.outNode.position.y = baseY + Math.sin(t * 0.8) * 0.3;
+
+        // Pulse glow rings
+        if (P.outNode.userData.glowRings) {
+            P.outNode.userData.glowRings.forEach((r, i) => {
+                r.position.copy(P.outNode.position);
+                const pulse = Math.sin(t * 1.2 + i * 1.1) * 0.5 + 0.5;
+                r.scale.setScalar(1 + pulse * 0.08);
+                r.material.opacity = (0.03 - i * 0.008) * (0.6 + pulse * 0.4);
+            });
+        }
+        // Spin equatorial ring
+        if (P.outNode.userData.eqRing) {
+            P.outNode.userData.eqRing.position.copy(P.outNode.position);
+            P.outNode.userData.eqRing.rotation.y = t * 0.9;
+            P.outNode.userData.eqRing.rotation.x = Math.sin(t * 0.4) * 0.3;
+        }
+        // Float score/model sprites with node
+        if (P.outNode.userData.scoreSprite) {
+            P.outNode.userData.scoreSprite.position.set(P.outNode.position.x, P.outNode.position.y + 2.2, P.outNode.position.z);
+        }
+        if (P.outNode.userData.modelSprite) {
+            P.outNode.userData.modelSprite.position.set(P.outNode.position.x, P.outNode.position.y + 3.8, P.outNode.position.z);
+        }
+        if (P.outNode.userData.label) {
+            P.outNode.userData.label.position.set(P.outNode.position.x, P.outNode.position.y + 5.0, P.outNode.position.z);
+        }
+        // Pulse victory beam opacity
+        if (P.outNode.userData.victoryBeam) {
+            P.outNode.userData.victoryBeam.material.opacity = 0.4 + Math.sin(t * 2.5) * 0.3;
+        }
+    }
+
+    const pColor = currentStage === 'ensemble' ? 0xcc44ff : 0x00d4ff;
+
+    Object.entries(P.meshes).forEach(([name, mesh]) => {
+        const glow = P.glows[name];
+        if (mesh.userData.state === 'training') {
+            mesh.scale.setScalar(0.85 + Math.sin(t * 5) * 0.18);
+            mesh.rotation.y = t * 3; mesh.rotation.x = Math.sin(t * 2) * 0.3;
+            if (glow) { glow.position.copy(mesh.position); glow.scale.setScalar(1.3 + Math.sin(t * 4) * 0.4); }
+        } else if (mesh.userData.state === 'completed') {
+            // Use baseZ as anchor — never accumulate drift
+            mesh.position.z = mesh.userData.baseZ + Math.sin(t * 0.7 + mesh.position.x) * 0.25;
+            mesh.rotation.y += 0.002;
+            if (glow) { glow.position.copy(mesh.position); glow.scale.setScalar(1 + Math.min(1, mesh.userData.metric) * 0.6); }
+        }
+        if (P.labels[name]) P.labels[name].position.set(mesh.position.x, mesh.position.y - 1.3, mesh.position.z);
+    });
+
+    // Ghost nodes float
+    Object.entries(ghostMeshes).forEach(([name, mesh]) => {
+        mesh.rotation.y += 0.003;
+        mesh.position.y += Math.sin(t * 0.4 + mesh.position.x) * 0.003;
+        if (ghostLabels[name]) ghostLabels[name].position.set(mesh.position.x, mesh.position.y - 1.1, mesh.position.z);
+    });
+
+    // Ensemble beams pulse — P.ensembleLines is {name: [line, line, …]}
+    Object.values(P.ensembleLines).forEach(lineArr => {
+        if (!Array.isArray(lineArr)) return;
+        lineArr.forEach((l, i) => { l.material.opacity = 0.18 + Math.sin(t * 2.2 + i * 1.4) * 0.17; });
+    });
+
+    // Crown float — FIX #2 always follows mesh.position (already updated this frame by setState above)
+    if (P.crownSprite && P.crownSprite.visible) {
+        const bm = P.meshes[P.bestName];
+        if (bm) P.crownSprite.position.set(bm.position.x, bm.position.y + 1.4 + Math.sin(t * 2) * 0.15, bm.position.z);
+    }
+
+    // Particles
+    const trainNames = Object.entries(P.meshes).filter(([, m]) => m.userData.state === 'training').map(([n]) => n);
+    if (!P.dataNode || !P.outNode) return; // guard: nodes not yet built
+    P.particles.forEach(p => {
+        if (!p.userData.active && trainNames.length && Math.random() < 0.055) {
+            const tgt = trainNames[Math.floor(Math.random() * trainNames.length)];
+            p.userData = { ...p.userData, active:true, progress:0, target:tgt, returning:false };
+            p.visible = true;
+        }
+        if (!p.userData.active) return;
+        p.userData.progress += p.userData.speed * 1.8 * animSpeed;
+        const tgtMesh = P.meshes[p.userData.target];
+        if (!tgtMesh || p.userData.progress >= 1) {
+            if (!p.userData.returning && tgtMesh) { p.userData.returning = true; p.userData.progress = 0; }
+            else { p.userData.active = false; p.visible = false; p.material.opacity = 0; return; }
+        }
+        const prog = p.userData.progress;
+        const from = p.userData.returning ? tgtMesh.position : P.dataNode.position;
+        const to   = p.userData.returning ? P.outNode.position : tgtMesh.position;
+        p.position.lerpVectors(from, to, prog);
+        p.position.z += Math.sin(prog * Math.PI) * (p.userData.returning ? 1.5 : 2);
+        p.position.x += Math.sin(prog * Math.PI * 2 + t) * 0.3;
+        p.material.color.setHex(p.userData.returning ? 0x44dd88 : pColor);
+        p.material.opacity = Math.sin(prog * Math.PI) * 0.85;
+        p.scale.setScalar(0.4 + Math.sin(prog * Math.PI) * 0.9);
+    });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  INIT                                            ║
+// ╚══════════════════════════════════════════════════╝
+initThree();
+buildAmbientStars(); // FIX #3 – create stars before first buildArena
+buildArena([]);      // idle state: just DATASET + OUTPUT + stars
+loadExperiments();
+animate();
+
+// Force a resize on the next paint to catch any flex-layout timing edge-case.
+requestAnimationFrame(() => {
+    const nw = canvas.parentElement.clientWidth  || (window.innerWidth  - 320);
+    const nh = canvas.parentElement.clientHeight || (window.innerHeight - 56);
+    if (nw && nh && renderer) {
+        camera.aspect = nw / nh;
+        camera.updateProjectionMatrix();
+        renderer.setSize(nw, nh);
+    }
+});
+</script>
+{% endblock %}
